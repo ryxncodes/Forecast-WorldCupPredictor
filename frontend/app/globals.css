@@ -221,9 +221,17 @@ table { border-collapse: collapse; width: 100%; }
 .accuracy-table td > strong, .accuracy-table td > span, .accuracy-table td > small { display: block; }
 .accuracy-table td > strong { color: var(--ink); font-size: 12px; }
 .accuracy-table td > span, .accuracy-table td > small { color: var(--muted); margin-top: 3px; }
+.accuracy-row { cursor: default; }
+.accuracy-row.expanded { background: var(--green-soft); }
+.accuracy-match-toggle { background: transparent; border: 0; color: inherit; cursor: pointer; display: grid; gap: 3px; padding: 0; text-align: left; width: 100%; }
+.accuracy-match-toggle:hover strong { color: var(--green); }
+.accuracy-match-toggle strong, .accuracy-match-toggle span, .accuracy-match-toggle small { display: block; }
+.accuracy-match-toggle span, .accuracy-match-toggle small { color: var(--muted); font-size: 10px; }
 .accuracy-chip { border: 1px solid var(--line-dark); display: inline-block !important; font-size: 9px; font-weight: 900; margin: 0 0 5px; padding: 3px 7px; text-transform: uppercase; width: fit-content; }
 .accuracy-chip.correct { background: var(--green-soft); border-color: var(--green); color: var(--green); }
 .accuracy-chip.wrong { background: var(--red-soft); border-color: var(--red-muted); color: var(--red-muted); }
+.accuracy-detail-row td { background: color-mix(in srgb, var(--green-soft) 50%, var(--surface)); padding: 12px; }
+.accuracy-prediction-card { margin: 0; }
 
 .third-page-intro { align-items: start; display: grid; gap: 48px; grid-template-columns: minmax(0, 1fr) 310px; }
 .eyebrow { color: var(--green); display: block; font-size: 10px; font-weight: 800; letter-spacing: .12em; margin-bottom: 8px; text-transform: uppercase; }

@@ -140,6 +140,7 @@ export type AccuracyReport = {
   completed_matches: number;
   picked_correct: number;
   pick_accuracy: number;
+  pick_counts: Record<"home" | "draw" | "away", number>;
   exact_scores: number;
   exact_score_rate: number;
   average_brier_score: number;
