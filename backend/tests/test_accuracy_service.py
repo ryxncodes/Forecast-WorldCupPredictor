@@ -61,26 +61,13 @@ def test_model_accuracy_scores_recomputed_argmax_instead_of_stored_label():
     assert report["pick_accuracy"] == pytest.approx(1)
     assert report["predicted_result_distribution"] == {"home": 0, "draw": 1, "away": 0}
     assert report["actual_result_distribution"] == {"home": 0, "draw": 1, "away": 0}
-    assert report["draw_diagnostics"]["draw_highest_count"] == 1
-    assert report["draw_diagnostics"]["draw_within_1_point_count"] == 1
-    assert report["draw_diagnostics"]["draw_precision"] == pytest.approx(1)
-    assert report["draw_diagnostics"]["draw_recall"] == pytest.approx(1)
-    assert report["draw_diagnostics"]["draw_f1"] == pytest.approx(1)
-    assert report["draw_diagnostics"]["predicted_draws"] == 1
-    assert report["draw_diagnostics"]["actual_draws"] == 1
-    assert report["draw_diagnostics"]["true_predicted_draws"] == 1
-    assert report["draw_calibration_buckets"][-1]["bucket"] == "30%+"
-    assert report["draw_calibration_buckets"][-1]["matches"] == 1
-    assert report["draw_calibration_buckets"][-1]["average_predicted_probability"] == pytest.approx(0.34)
-    assert report["draw_calibration_buckets"][-1]["actual_frequency"] == pytest.approx(1)
-    draw_outcome_bucket = next(
-        bucket for bucket in report["outcome_calibration_buckets"]["draw"]
-        if bucket["bucket"] == "30-40%"
-    )
-    assert draw_outcome_bucket["matches"] == 1
-    assert report["neutral_site_bias_check"]["draw"]["average_predicted_probability"] == pytest.approx(0.34)
-    assert report["neutral_site_bias_check"]["draw"]["actual_frequency"] == pytest.approx(1)
-    assert report["home_field_advantage"]["applied"] is False
+    assert "draw_diagnostics" not in report
+    assert "draw_calibration_buckets" not in report
+    assert "outcome_calibration_buckets" not in report
+    assert "neutral_site_bias_check" not in report
+    assert "home_field_advantage" not in report
+    assert "recommended_model_candidate" not in report
+    assert "draw_diagnostic_matches" not in report
     assert report["matches"][0]["predicted_outcome"] == "draw"
     assert report["matches"][0]["stored_predicted_outcome"] == "home"
     assert report["matches"][0]["stored_pick_matches_argmax"] is False

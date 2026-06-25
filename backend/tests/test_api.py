@@ -29,15 +29,15 @@ def test_dashboard_endpoints_are_public_read_only():
         assert "unscored_completed_matches" in accuracy.json()
         assert set(accuracy.json()["predicted_result_distribution"]) == {"home", "draw", "away"}
         assert set(accuracy.json()["actual_result_distribution"]) == {"home", "draw", "away"}
-        assert "draw_diagnostics" in accuracy.json()
-        assert "draw_calibration_buckets" in accuracy.json()
-        assert "outcome_calibration_buckets" in accuracy.json()
-        assert "neutral_site_bias_check" in accuracy.json()
-        assert "home_field_advantage" in accuracy.json()
-        assert "recommended_model_candidate" in accuracy.json()
+        assert "draw_diagnostics" not in accuracy.json()
+        assert "draw_calibration_buckets" not in accuracy.json()
+        assert "outcome_calibration_buckets" not in accuracy.json()
+        assert "neutral_site_bias_check" not in accuracy.json()
+        assert "home_field_advantage" not in accuracy.json()
+        assert "recommended_model_candidate" not in accuracy.json()
         assert "model_comparisons" not in accuracy.json()
         assert "draw_argmax_diagnostics" not in accuracy.json()
-        assert "draw_diagnostic_matches" in accuracy.json()
+        assert "draw_diagnostic_matches" not in accuracy.json()
 
         health = client.get("/health")
         assert health.status_code == 200
