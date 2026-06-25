@@ -1,0 +1,13 @@
+{
+  "version": "2026.1-calibrated",
+  "rating_k_factor": 20.0,
+  "rating_margin_exponent": 0.75,
+  "goal_base_rate": 1.22,
+  "goal_elo_coefficient": 0.0018,
+  "goal_rate_floor": 0.15,
+  "goal_rate_ceiling": 4.0,
+  "calibration_data": "international results through 2026-06-10",
+  "chronological_validation_window": "neutral internationals from 2024-01-01 through 2026-06-10",
+  "old_outcome_brier": 0.58025,
+  "calibrated_outcome_brier": 0.55037
+}

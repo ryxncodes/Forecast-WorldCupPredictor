@@ -1,0 +1,48 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from ..models.database import get_db
+from ..services.forecast_service import forecast_history, latest_forecast
+
+
+router = APIRouter(prefix="/forecast", tags=["forecast"])
+
+
+def serialize(run) -> dict:
+    return {
+        "id": run.id, "created_at": run.created_at.isoformat(), "simulations": run.simulations,
+        "label": run.label, "completed_results": run.completed_results,
+        "data_as_of": run.data_as_of.isoformat() if run.data_as_of else None,
+        "data_source": run.data_source,
+        "model_version": run.model_version,
+        "probabilities": sorted([
+            {
+                "team_id": row.team_id, "team": row.team.name, "group": row.team.group,
+                "advance_probability": row.advance_probability,
+                "win_group_probability": row.win_group_probability,
+                "runner_up_probability": row.runner_up_probability,
+                "best_third_probability": row.best_third_probability,
+                "round_of_32_probability": row.round_of_32_probability,
+                "round_of_16_probability": row.round_of_16_probability,
+                "quarterfinal_probability": row.quarterfinal_probability,
+                "semifinal_probability": row.semifinal_probability,
+                "final_probability": row.final_probability,
+                "champion_probability": row.champion_probability,
+            }
+            for row in run.probabilities
+        ], key=lambda item: item["champion_probability"], reverse=True),
+    }
+
+
+@router.get("/latest")
+def get_latest_forecast(db: Session = Depends(get_db)):
+    run = latest_forecast(db)
+    if run is None:
+        raise HTTPException(status_code=404, detail="No forecast has been run yet")
+    return serialize(run)
+
+
+@router.get("/history")
+def get_forecast_history(limit: int = 20, db: Session = Depends(get_db)):
+    safe_limit = min(max(limit, 1), 100)
+    return [serialize(run) for run in forecast_history(db, safe_limit)]

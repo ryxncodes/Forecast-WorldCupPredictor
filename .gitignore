@@ -1,0 +1,9 @@
+backend/.venv/
+frontend/node_modules/
+frontend/.next/
+frontend/tsconfig.tsbuildinfo
+data/forecast.db
+tmp/
+__pycache__/
+.pytest_cache/
+.DS_Store
