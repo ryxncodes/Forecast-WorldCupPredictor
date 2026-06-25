@@ -12,7 +12,7 @@ from .models import database
 from .paths import PROJECT_DIR, data_path
 from .settings import ADMIN_SYNC_ENABLED, CORS_ORIGINS, valid_sync_token
 from .seed_data import seed_database
-from .services.accuracy_service import lock_upcoming_match_predictions
+from .services.accuracy_service import backfill_completed_match_predictions, lock_upcoming_match_predictions
 from .services.forecast_service import latest_forecast, recalculate_ratings, run_and_store_forecast
 
 
@@ -22,6 +22,7 @@ async def lifespan(_: FastAPI):
     with database.SessionLocal() as db:
         seed_database(db)
         recalculate_ratings(db)
+        backfill_completed_match_predictions(db)
         lock_upcoming_match_predictions(db)
         if latest_forecast(db) is None:
             metadata = json.loads(data_path("source_snapshot.json").read_text())

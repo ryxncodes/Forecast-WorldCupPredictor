@@ -19,7 +19,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from app.models import Match  # noqa: E402
 from app.models import database  # noqa: E402
 from app.seed_data import seed_database  # noqa: E402
-from app.services.accuracy_service import lock_upcoming_match_predictions  # noqa: E402
+from app.services.accuracy_service import (  # noqa: E402
+    backfill_completed_match_predictions,
+    lock_upcoming_match_predictions,
+)
 from app.services.forecast_service import (  # noqa: E402
     latest_forecast,
     recalculate_ratings,
@@ -58,6 +61,9 @@ def sync_database(simulations: int = 10_000) -> bool:
                 match.details_json = row.get("details_json") or "{}"
         db.commit()
         recalculate_ratings(db)
+        backfilled_predictions = backfill_completed_match_predictions(db)
+        if backfilled_predictions:
+            print(f"Backfilled {backfilled_predictions} historical predictions")
         locked_predictions = lock_upcoming_match_predictions(db)
         if locked_predictions:
             print(f"Locked {locked_predictions} pre-match predictions")
