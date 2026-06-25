@@ -1,12 +1,14 @@
 import math
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from itertools import groupby
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
-from ..models import Match, Team
+from ..models import Match, MatchPredictionSnapshot
 from .match_model import expected_goals, outcome_probabilities
+from .model_parameters import MODEL_VERSION
 from .ratings import update_rating_pair
 
 
@@ -48,33 +50,153 @@ def _outcome_label(outcome: str, home_team: str, away_team: str) -> str:
     return "Draw"
 
 
+def _as_naive_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    return value.replace(tzinfo=None) if value.tzinfo else value
+
+
+def _snapshot_for_match(match: Match) -> MatchPredictionSnapshot:
+    home_xg, away_xg = expected_goals(match.home_team.rating, match.away_team.rating)
+    home_win, draw, away_win = outcome_probabilities(home_xg, away_xg)
+    probabilities = {"home": home_win, "draw": draw, "away": away_win}
+    score_pick = _most_likely_score(home_xg, away_xg)
+    return MatchPredictionSnapshot(
+        match_id=match.id,
+        model_version=MODEL_VERSION,
+        home_team_rating=match.home_team.rating,
+        away_team_rating=match.away_team.rating,
+        home_expected_goals=home_xg,
+        away_expected_goals=away_xg,
+        home_win_probability=home_win,
+        draw_probability=draw,
+        away_win_probability=away_win,
+        predicted_outcome=max(probabilities, key=probabilities.get),
+        predicted_home_score=score_pick.home_goals,
+        predicted_away_score=score_pick.away_goals,
+        predicted_score_probability=score_pick.probability,
+    )
+
+
+def lock_upcoming_match_predictions(db: Session, now: datetime | None = None) -> int:
+    """Store immutable predictions for the next scheduled kickoff batch."""
+    now = now or datetime.now(UTC)
+    comparison_now = now.replace(tzinfo=None) if now.tzinfo else now
+    existing_match_ids = select(MatchPredictionSnapshot.match_id)
+    next_kickoff = db.scalar(
+        select(func.min(Match.kickoff)).where(
+            Match.completed.is_(False),
+            Match.status == "pre",
+            Match.kickoff > comparison_now,
+            Match.id.not_in(existing_match_ids),
+        )
+    )
+    if next_kickoff is None:
+        return 0
+    matches = db.scalars(
+        select(Match)
+        .options(joinedload(Match.home_team), joinedload(Match.away_team))
+        .where(
+            Match.completed.is_(False),
+            Match.status == "pre",
+            Match.kickoff == next_kickoff,
+            Match.id.not_in(existing_match_ids),
+        )
+        .order_by(Match.kickoff, Match.id)
+    )
+    snapshots = [_snapshot_for_match(match) for match in matches]
+    if not snapshots:
+        return 0
+    db.add_all(snapshots)
+    db.commit()
+    return len(snapshots)
+
+
 def model_accuracy(db: Session) -> dict:
-    teams = {team.id: team for team in db.scalars(select(Team))}
-    ratings = {team.id: team.initial_rating for team in teams.values()}
+    completed_total = db.scalar(
+        select(func.count())
+        .select_from(Match)
+        .where(Match.completed.is_(True), Match.home_score.is_not(None), Match.away_score.is_not(None))
+    ) or 0
+    snapshots = {
+        snapshot.match_id: snapshot
+        for snapshot in db.scalars(select(MatchPredictionSnapshot))
+    }
+    tracking_started_at = _as_naive_utc(min((snapshot.created_at for snapshot in snapshots.values()), default=None))
     matches = list(db.scalars(
         select(Match)
         .options(joinedload(Match.home_team), joinedload(Match.away_team))
         .order_by(Match.kickoff, Match.id)
     ))
+    ratings = {
+        team_id: team.initial_rating
+        for team_id, team in {
+            match.home_team_id: match.home_team
+            for match in matches
+        }.items()
+    }
+    ratings.update({
+        team_id: team.initial_rating
+        for team_id, team in {
+            match.away_team_id: match.away_team
+            for match in matches
+        }.items()
+    })
     rows = []
+    prediction_sources = {"locked": 0, "backfilled": 0}
     for _, kickoff_matches in groupby(matches, key=lambda item: item.kickoff):
         completed_matches = [
             match for match in kickoff_matches
             if match.completed and match.home_score is not None and match.away_score is not None
         ]
-        updates = []
+        rating_updates = []
         for match in completed_matches:
-            home_xg, away_xg = expected_goals(ratings[match.home_team_id], ratings[match.away_team_id])
-            home_win, draw, away_win = outcome_probabilities(home_xg, away_xg)
-            probabilities = {"home": home_win, "draw": draw, "away": away_win}
-            predicted_outcome = max(probabilities, key=probabilities.get)
+            snapshot = snapshots.get(match.id)
+            source = "locked"
+            if snapshot is None:
+                if tracking_started_at is not None and match.kickoff >= tracking_started_at:
+                    continue
+                home_xg, away_xg = expected_goals(ratings[match.home_team_id], ratings[match.away_team_id])
+                home_win, draw, away_win = outcome_probabilities(home_xg, away_xg)
+                probabilities = {"home": home_win, "draw": draw, "away": away_win}
+                score_pick = _most_likely_score(home_xg, away_xg)
+                prediction = {
+                    "home_expected_goals": home_xg,
+                    "away_expected_goals": away_xg,
+                    "home_win_probability": home_win,
+                    "draw_probability": draw,
+                    "away_win_probability": away_win,
+                    "predicted_outcome": max(probabilities, key=probabilities.get),
+                    "predicted_home_score": score_pick.home_goals,
+                    "predicted_away_score": score_pick.away_goals,
+                    "predicted_score_probability": score_pick.probability,
+                }
+                source = "backfilled"
+            else:
+                probabilities = {
+                    "home": snapshot.home_win_probability,
+                    "draw": snapshot.draw_probability,
+                    "away": snapshot.away_win_probability,
+                }
+                prediction = {
+                    "home_expected_goals": snapshot.home_expected_goals,
+                    "away_expected_goals": snapshot.away_expected_goals,
+                    "home_win_probability": snapshot.home_win_probability,
+                    "draw_probability": snapshot.draw_probability,
+                    "away_win_probability": snapshot.away_win_probability,
+                    "predicted_outcome": snapshot.predicted_outcome,
+                    "predicted_home_score": snapshot.predicted_home_score,
+                    "predicted_away_score": snapshot.predicted_away_score,
+                    "predicted_score_probability": snapshot.predicted_score_probability,
+                }
+
             actual_outcome = _outcome(match.home_score, match.away_score)
             actual_probability = max(probabilities[actual_outcome], 1e-12)
             brier_score = sum(
                 (probability - (1 if outcome == actual_outcome else 0)) ** 2
                 for outcome, probability in probabilities.items()
             )
-            score_pick = _most_likely_score(home_xg, away_xg)
+            prediction_sources[source] += 1
             rows.append({
                 "match_id": match.id,
                 "match_number": match.match_number,
@@ -84,25 +206,18 @@ def model_accuracy(db: Session) -> dict:
                 "away_team": match.away_team.name,
                 "home_score": match.home_score,
                 "away_score": match.away_score,
-                "home_expected_goals": home_xg,
-                "away_expected_goals": away_xg,
-                "home_win_probability": home_win,
-                "draw_probability": draw,
-                "away_win_probability": away_win,
-                "predicted_outcome": predicted_outcome,
-                "predicted_outcome_label": _outcome_label(predicted_outcome, match.home_team.name, match.away_team.name),
+                **prediction,
+                "prediction_source": source,
+                "predicted_outcome_label": _outcome_label(prediction["predicted_outcome"], match.home_team.name, match.away_team.name),
                 "actual_outcome": actual_outcome,
                 "actual_outcome_label": _outcome_label(actual_outcome, match.home_team.name, match.away_team.name),
-                "picked_correct": predicted_outcome == actual_outcome,
-                "predicted_home_score": score_pick.home_goals,
-                "predicted_away_score": score_pick.away_goals,
-                "predicted_score_probability": score_pick.probability,
-                "exact_score": score_pick.home_goals == match.home_score and score_pick.away_goals == match.away_score,
+                "picked_correct": prediction["predicted_outcome"] == actual_outcome,
+                "exact_score": prediction["predicted_home_score"] == match.home_score and prediction["predicted_away_score"] == match.away_score,
                 "brier_score": brier_score,
                 "log_loss": -math.log(actual_probability),
-                "goal_error": abs(home_xg - match.home_score) + abs(away_xg - match.away_score),
+                "goal_error": abs(prediction["home_expected_goals"] - match.home_score) + abs(prediction["away_expected_goals"] - match.away_score),
             })
-            updates.append((
+            rating_updates.append((
                 match.home_team_id,
                 match.away_team_id,
                 update_rating_pair(
@@ -110,26 +225,25 @@ def model_accuracy(db: Session) -> dict:
                     match.home_score, match.away_score,
                 ),
             ))
-        for home_team_id, away_team_id, pair in updates:
+        for home_team_id, away_team_id, pair in rating_updates:
             ratings[home_team_id] = pair.home
             ratings[away_team_id] = pair.away
 
-    completed = len(rows)
+    scored = len(rows)
     picked_correct = sum(row["picked_correct"] for row in rows)
     exact_scores = sum(row["exact_score"] for row in rows)
-    pick_counts = {
-        outcome: sum(row["predicted_outcome"] == outcome for row in rows)
-        for outcome in ("home", "draw", "away")
-    }
     return {
-        "completed_matches": completed,
+        "completed_matches": completed_total,
+        "scored_matches": scored,
+        "unscored_completed_matches": completed_total - scored,
+        "locked_predictions": prediction_sources["locked"],
+        "backfilled_predictions": prediction_sources["backfilled"],
         "picked_correct": picked_correct,
-        "pick_accuracy": picked_correct / completed if completed else 0,
-        "pick_counts": pick_counts,
+        "pick_accuracy": picked_correct / scored if scored else 0,
         "exact_scores": exact_scores,
-        "exact_score_rate": exact_scores / completed if completed else 0,
-        "average_brier_score": sum(row["brier_score"] for row in rows) / completed if completed else 0,
-        "average_log_loss": sum(row["log_loss"] for row in rows) / completed if completed else 0,
-        "average_goal_error": sum(row["goal_error"] for row in rows) / completed if completed else 0,
+        "exact_score_rate": exact_scores / scored if scored else 0,
+        "average_brier_score": sum(row["brier_score"] for row in rows) / scored if scored else 0,
+        "average_log_loss": sum(row["log_loss"] for row in rows) / scored if scored else 0,
+        "average_goal_error": sum(row["goal_error"] for row in rows) / scored if scored else 0,
         "matches": list(reversed(rows)),
     }

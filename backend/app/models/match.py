@@ -27,3 +27,4 @@ class Match(Base):
 
     home_team = relationship("Team", foreign_keys=[home_team_id])
     away_team = relationship("Team", foreign_keys=[away_team_id])
+    prediction_snapshot = relationship("MatchPredictionSnapshot", back_populates="match", uselist=False)

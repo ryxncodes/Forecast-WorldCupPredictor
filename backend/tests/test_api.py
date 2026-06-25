@@ -25,7 +25,8 @@ def test_dashboard_endpoints_are_public_read_only():
         accuracy = client.get("/accuracy")
         assert accuracy.status_code == 200
         assert accuracy.json()["completed_matches"] >= 1
-        assert "brier_score" in accuracy.json()["matches"][0]
+        assert "scored_matches" in accuracy.json()
+        assert "unscored_completed_matches" in accuracy.json()
 
         health = client.get("/health")
         assert health.status_code == 200

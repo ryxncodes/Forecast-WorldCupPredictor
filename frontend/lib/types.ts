@@ -130,6 +130,7 @@ export type AccuracyMatch = {
   predicted_home_score: number;
   predicted_away_score: number;
   predicted_score_probability: number;
+  prediction_source: "locked" | "backfilled";
   exact_score: boolean;
   brier_score: number;
   log_loss: number;
@@ -138,9 +139,12 @@ export type AccuracyMatch = {
 
 export type AccuracyReport = {
   completed_matches: number;
+  scored_matches: number;
+  unscored_completed_matches: number;
+  locked_predictions: number;
+  backfilled_predictions: number;
   picked_correct: number;
   pick_accuracy: number;
-  pick_counts: Record<"home" | "draw" | "away", number>;
   exact_scores: number;
   exact_score_rate: number;
   average_brier_score: number;
