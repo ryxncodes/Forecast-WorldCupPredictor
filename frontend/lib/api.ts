@@ -3,9 +3,13 @@ import type { Forecast, Match, Standings } from "./types";
 function cleanApiUrl(value: string | undefined) {
   const trimmed = value?.trim();
   if (!trimmed || trimmed === "/") return null;
-  if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://") && !trimmed.startsWith("/backend")) {
+  if (trimmed.startsWith("/backend")) return trimmed.replace(/\/+$/, "");
+  if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
     return null;
   }
+  const url = new URL(trimmed);
+  const local = ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+  if (!local && !url.pathname.startsWith("/backend")) return null;
   return trimmed.replace(/\/+$/, "");
 }
 
