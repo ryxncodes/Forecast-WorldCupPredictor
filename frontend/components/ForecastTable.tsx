@@ -19,7 +19,7 @@ const columns: { key: ProbabilityKey; label: string; optional?: boolean }[] = [
 function formatProbability(value: number, eliminated: boolean) {
   const percent = value * 100;
   if (eliminated) return "0%";
-  if (percent === 0) return "<0.1%";
+  if (percent < 0.1) return "<0.1%";
   if (percent < 10) return `${percent.toFixed(1)}%`;
   return `${Math.round(percent)}%`;
 }
@@ -68,7 +68,7 @@ export function ForecastTable({ forecast }: { forecast: Forecast }) {
     <section id="forecast" className="forecast-section" aria-labelledby="forecast-heading">
       <div className="section-heading">
         <div><h1 id="forecast-heading">World Cup 2026 forecast</h1><p>Pre-tournament Elo ratings feed a Poisson goal model. Monte Carlo simulation plays all 12 groups, FIFA’s best-third-place allocation, and the full knockout bracket.</p></div>
-        <div className="data-status"><strong>Last updated <LocalUpdateTime value={forecast.data_as_of} /></strong><span>{forecast.completed_results} of 72 group matches complete</span><small>{forecast.data_source} · model {forecast.model_version}</small></div>
+        <div className="data-status"><strong>Last updated <LocalUpdateTime value={forecast.created_at} /></strong><span>{forecast.completed_results} of 72 group matches complete</span><small>{forecast.data_as_of ? <>Scores through <LocalUpdateTime value={forecast.data_as_of} /> · </> : null}{forecast.data_source} · model {forecast.model_version}</small></div>
       </div>
       <div className="table-scroll">
         <table className="forecast-table">
