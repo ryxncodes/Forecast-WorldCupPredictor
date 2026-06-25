@@ -17,6 +17,7 @@ CORS_ORIGINS = [
 
 SYNC_TOKEN = os.getenv("SYNC_TOKEN", "")
 ADMIN_SYNC_ENABLED = os.getenv("ADMIN_SYNC_ENABLED", "false").lower() == "true"
+MATCH_PROBABILITY_MODEL_MODE = os.getenv("MATCH_PROBABILITY_MODEL_MODE", "rating_gap_poisson")
 
 
 def valid_sync_token(token: str | None) -> bool:

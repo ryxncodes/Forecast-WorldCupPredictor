@@ -6,15 +6,19 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..models import Match
 from ..models.database import get_db
-from ..services.match_model import expected_goals, outcome_probabilities
+from ..services.match_model import match_probabilities
+from ..settings import MATCH_PROBABILITY_MODEL_MODE
 
 
 router = APIRouter(prefix="/matches", tags=["matches"])
 
 
 def serialize(match: Match) -> dict:
-    home_xg, away_xg = expected_goals(match.home_team.rating, match.away_team.rating)
-    home_win, draw, away_win = outcome_probabilities(home_xg, away_xg)
+    home_xg, away_xg, home_win, draw, away_win = match_probabilities(
+        match.home_team.rating,
+        match.away_team.rating,
+        MATCH_PROBABILITY_MODEL_MODE,
+    )
     return {
         "id": match.id, "match_number": match.match_number,
         "group": match.group, "stage": match.stage,
@@ -31,6 +35,7 @@ def serialize(match: Match) -> dict:
             "away_win_probability": away_win,
             "home_expected_goals": home_xg,
             "away_expected_goals": away_xg,
+            "model_mode": MATCH_PROBABILITY_MODEL_MODE,
         },
     }
 

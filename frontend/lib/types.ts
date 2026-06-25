@@ -106,6 +106,7 @@ export type MatchPrediction = {
   away_win_probability: number;
   home_expected_goals: number;
   away_expected_goals: number;
+  model_mode: string;
 };
 
 export type AccuracyMatch = {
@@ -115,6 +116,8 @@ export type AccuracyMatch = {
   group: string;
   home_team: string;
   away_team: string;
+  home_team_rating: number;
+  away_team_rating: number;
   home_score: number;
   away_score: number;
   home_expected_goals: number;
@@ -123,10 +126,12 @@ export type AccuracyMatch = {
   draw_probability: number;
   away_win_probability: number;
   predicted_outcome: "home" | "draw" | "away";
+  stored_predicted_outcome: "home" | "draw" | "away";
   predicted_outcome_label: string;
   actual_outcome: "home" | "draw" | "away";
   actual_outcome_label: string;
   picked_correct: boolean;
+  stored_pick_matches_argmax: boolean;
   predicted_home_score: number;
   predicted_away_score: number;
   predicted_score_probability: number;
@@ -135,6 +140,74 @@ export type AccuracyMatch = {
   brier_score: number;
   log_loss: number;
   goal_error: number;
+  draw_rank: number;
+  draw_margin_from_top: number;
+};
+
+export type OutcomeDistribution = {
+  home: number;
+  draw: number;
+  away: number;
+};
+
+export type DrawDiagnostics = {
+  highest_draw_probability: number;
+  average_draw_probability: number;
+  median_draw_probability: number;
+  draw_second_highest_count: number;
+  draw_within_1_point_count: number;
+  draw_within_3_points_count: number;
+  draw_within_5_points_count: number;
+  draw_highest_count: number;
+  draw_precision: number;
+  draw_recall: number;
+  draw_f1: number;
+  predicted_draws: number;
+  actual_draws: number;
+  true_predicted_draws: number;
+};
+
+export type CalibrationBucket = {
+  bucket: string;
+  lower: number;
+  upper: number;
+  matches: number;
+  average_predicted_probability: number;
+  actual_frequency: number;
+  difference: number;
+};
+
+export type OutcomeCalibrationBuckets = {
+  home: CalibrationBucket[];
+  draw: CalibrationBucket[];
+  away: CalibrationBucket[];
+};
+
+export type NeutralSiteBiasOutcome = {
+  average_predicted_probability: number;
+  actual_frequency: number;
+  top_pick_rate: number;
+  top_pick_count: number;
+  actual_count: number;
+};
+
+export type NeutralSiteBiasCheck = {
+  home: NeutralSiteBiasOutcome;
+  draw: NeutralSiteBiasOutcome;
+  away: NeutralSiteBiasOutcome;
+};
+
+export type HomeFieldAdvantageDiagnostic = {
+  applied: boolean;
+  detail: string;
+  source: string;
+};
+
+export type RecommendedModelCandidate = {
+  model_key: string;
+  label: string;
+  reason: string;
+  sample_size: number;
 };
 
 export type AccuracyReport = {
@@ -150,5 +223,14 @@ export type AccuracyReport = {
   average_brier_score: number;
   average_log_loss: number;
   average_goal_error: number;
+  predicted_result_distribution: OutcomeDistribution;
+  actual_result_distribution: OutcomeDistribution;
+  draw_diagnostics: DrawDiagnostics;
+  draw_calibration_buckets: CalibrationBucket[];
+  outcome_calibration_buckets: OutcomeCalibrationBuckets;
+  neutral_site_bias_check: NeutralSiteBiasCheck;
+  home_field_advantage: HomeFieldAdvantageDiagnostic;
+  recommended_model_candidate: RecommendedModelCandidate;
+  draw_diagnostic_matches: AccuracyMatch[];
   matches: AccuracyMatch[];
 };

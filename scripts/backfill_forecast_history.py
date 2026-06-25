@@ -28,6 +28,7 @@ def label_for_count(completed: int) -> str:
 
 
 def backfill(simulations: int = 10_000) -> None:
+    print(f"Preparing forecast history backfill with {simulations:,} simulations per snapshot", flush=True)
     database.Base.metadata.create_all(bind=database.engine)
     with database.SessionLocal() as db:
         seed_database(db)
@@ -38,13 +39,16 @@ def backfill(simulations: int = 10_000) -> None:
             (label_for_count(count), {match.id for match in known_results[:count]})
             for count in range(0, len(known_results) + 1)
         ]
+        print(f"Rebuilding {len(checkpoints)} forecast snapshots", flush=True)
 
         db.execute(delete(ForecastProbability))
         db.execute(delete(ForecastRun))
         db.commit()
+        print("Cleared existing forecast history", flush=True)
 
         try:
             for index, (label, included_ids) in enumerate(checkpoints):
+                print(f"[{index + 1}/{len(checkpoints)}] Running {label}", flush=True)
                 for match in matches:
                     match.completed = match.id in included_ids
                 db.commit()
@@ -64,7 +68,7 @@ def backfill(simulations: int = 10_000) -> None:
                 )
                 run.created_at = data_as_of
                 db.commit()
-                print(f"Stored {label}")
+                print(f"[{index + 1}/{len(checkpoints)}] Stored {label}", flush=True)
         finally:
             for match in matches:
                 match.completed = originally_completed[match.id]
