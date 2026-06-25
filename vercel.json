@@ -1,0 +1,30 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "experimentalServices": {
+    "frontend": {
+      "entrypoint": "frontend",
+      "routePrefix": "/",
+      "framework": "nextjs"
+    },
+    "backend": {
+      "entrypoint": "backend/main.py",
+      "routePrefix": "/backend",
+      "framework": "fastapi",
+      "memory": 1024,
+      "maxDuration": 60,
+      "includeFiles": [
+        "backend/app/**",
+        "backend/main.py",
+        "backend/requirements.txt",
+        "data/**",
+        "scripts/**"
+      ],
+      "excludeFiles": [
+        "data/forecast.db",
+        "frontend/**",
+        "**/__pycache__/**",
+        "**/*.pyc"
+      ]
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # The Forecast
 
-The Forecast is a small full-stack tournament simulator built to make the math readable. It uses a FastAPI backend, a Next.js dashboard, and SQLite. There is no Streamlit layer and no black-box machine learning pipeline.
+The Forecast is a small full-stack tournament simulator built to make the math readable. It uses a FastAPI backend, a Next.js dashboard, and SQLAlchemy persistence. Local development defaults to SQLite; deployment is prepared for Supabase Postgres. There is no Streamlit layer and no black-box machine learning pipeline.
 
 The repository contains 48 real teams, 12 groups, 72 group-stage fixtures, current completed results, and the full 32-team knockout bracket. The top two teams in each group plus the eight best third-place teams advance. FIFA's complete 495-row Annex C table decides where those third-place teams enter the bracket.
 
@@ -10,8 +10,8 @@ The repository contains 48 real teams, 12 groups, 72 group-stage fixtures, curre
 - `backend/app/services/match_model.py` converts the Elo gap into expected goals and samples goals from a Poisson distribution.
 - `backend/app/services/standings.py` builds group tables, applies FIFA 2026's head-to-head-first group tiebreakers, and ranks the 12 third-place teams by their overall records.
 - `backend/app/services/simulator.py` repeats the unfinished tournament, looks up FIFA's official third-place assignment, plays all knockout rounds, and turns stage counts into probabilities.
-- `backend/app/models/` contains the small SQLAlchemy/SQLite persistence layer. SQLAlchemy keeps a later Postgres move possible without adding repository abstractions to this MVP.
-- `backend/app/api/` exposes teams, fixtures, standings, result editing, and forecasts.
+- `backend/app/models/` contains the small SQLAlchemy persistence layer. SQLite is the no-setup local default, while `DATABASE_URL` points hosted deployments at Supabase Postgres.
+- `backend/app/api/` exposes teams, fixtures, standings, match details, health checks, and forecasts.
 - `frontend/` uses separate Forecast, Third Place, History, and Matches routes. The dedicated third-place page shows the live eight-team cut line and projected best-third paths, so surprising probabilities are inspectable rather than opaque.
 - `data/` keeps the real dated seed snapshot, source hashes, source notes, and FIFA's Annex C lookup visible instead of burying them in code.
 - `scripts/` downloads source data, recalculates pre-tournament Elo ratings, and rebuilds the CSV snapshot.
@@ -80,7 +80,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). FastAPI's interactive documentation is at [http://localhost:8000/docs](http://localhost:8000/docs).
 
-The frontend defaults to `http://localhost:8000`. To use another backend, set `NEXT_PUBLIC_API_URL` before starting Next.js.
+The frontend defaults to `http://localhost:8000` while running on localhost. On Vercel Services it uses the same deployed origin at `/backend`. To use a separate backend, set `NEXT_PUBLIC_API_URL`.
 
 ## Refresh scores and store a historical forecast
 
@@ -110,28 +110,51 @@ This replaces forecast history with deterministic pre-tournament, post-matchday-
 
 The tournament format and bracket are sourced from FIFA. Completed scores come from ESPN's public scoreboard; machine-readable fixtures come from openfootball and are checked against FIFA's schedule. Historical results come from martj42's CC0 dataset. Exact URLs and caveats are documented in `data/SOURCES.md`.
 
-## Free autonomous hosting shape
+## Vercel + Supabase deployment
 
-The code supports `DATABASE_URL`. Without it, local development uses SQLite. For a hosted copy, point both the FastAPI service and the included GitHub Actions workflow at one free Postgres database (for example Neon or Supabase), then add that URL as the repository secret `DATABASE_URL`. Set backend `CORS_ORIGINS` to the frontend URL and frontend `NEXT_PUBLIC_API_URL` to the API URL. Hosted database deployments reject public score edits and manual forecast runs by default. `.github/workflows/sync-live-data.yml` polls the score feed every ten minutes, updates live/upcoming match state, and records exactly one new forecast snapshot when a result becomes final. The frontend polls the API independently, so visitors see updates without reloading or launching simulations themselves.
+This repo is prepared for a single Vercel project using Services:
 
-This separation is intentional: the web server serves requests, Postgres preserves history across deploys, and GitHub Actions performs the scheduled refresh. There is no paid sports API, queue, or permanently running scraper.
+- `frontend/` deploys as the Next.js service at `/`.
+- `backend/main.py` deploys as the FastAPI service at `/backend`.
+- Supabase Postgres stores teams, matches, standings inputs, and forecast history.
+- GitHub Actions polls ESPN's public scoreboard every ten minutes and writes new snapshots only when completed results change.
+
+Recommended setup:
+
+1. Create a Supabase project.
+2. Copy the pooled Postgres connection string. Keep `sslmode=require`.
+3. In Vercel, import this GitHub repo and use the detected Services preset. The root `vercel.json` is already included.
+4. Add Vercel environment variables:
+   - `DATABASE_URL`: your Supabase pooled connection string
+   - `DISABLE_DB_POOL`: `true`
+   - `CORS_ORIGINS`: your Vercel URL, plus localhost values if you want direct local testing
+   - `SYNC_TOKEN`: a long random string, optional unless you intentionally enable the protected manual sync endpoint
+5. In GitHub repository secrets, add:
+   - `DATABASE_URL`: the same Supabase pooled connection string
+6. Bootstrap Supabase once from your machine:
+
+```bash
+DATABASE_URL='postgresql://...' backend/.venv/bin/python scripts/bootstrap_database.py --backfill-history
+```
+
+After that, the scheduled workflow in `.github/workflows/sync-live-data.yml` keeps scores and forecasts current. The frontend refreshes API data in the background, so visitors see updates without pressing a run button or launching simulations themselves.
+
+If you choose separate services instead of Vercel Services, set `NEXT_PUBLIC_API_URL` to the backend URL and set backend `CORS_ORIGINS` to the frontend URL.
 
 ## API shape
 
 - `GET /teams` — teams, groups, and current Elo ratings
 - `GET /matches` — scheduled and completed fixtures
-- `POST /matches/{match_id}/result` — add or edit a score
 - `GET /standings` — current group tables plus the ranked third-place table
-- `POST /forecast/run` — run and store a new forecast (`simulations` defaults to 10,000)
 - `GET /forecast/latest` — latest stored forecast
 - `GET /forecast/history` — recent stored forecasts for the history chart
+- `GET /health` — backend and database health
+- `POST /admin/sync` — optional protected manual refresh hook; requires `ADMIN_SYNC_ENABLED=true` and `X-Sync-Token`
 
-Example rerun:
+Example health check:
 
 ```bash
-curl -X POST http://localhost:8000/forecast/run \
-  -H 'Content-Type: application/json' \
-  -d '{"simulations": 10000, "seed": 42}'
+curl http://localhost:8000/health
 ```
 
 ## Tests
@@ -142,7 +165,6 @@ cd backend
 
 cd ../frontend
 npm run build
-npm audit
 ```
 
 The backend tests cover Elo expectations and updates, standings points and sorting, non-negative Poisson scores, all 495 FIFA third-place combinations, probability bounds, exact stage totals (32/16/8/4/2/1), and the API edit/rerun flow.
@@ -153,7 +175,7 @@ The backend tests cover Elo expectations and updates, standings points and sorti
 - Expected goals depend only on Elo difference; there is no home advantage, player data, injury news, or learned xG model.
 - Knockout draws are resampled as a readable stand-in for extra time and penalties.
 - ESPN's public scoreboard is not a documented service-level API. Validation prevents partial or unmapped data from being accepted, but a future endpoint change will require updating the adapter.
-- There is no authentication because this is a local single-user learning project.
-- Forecast runs are synchronous. A job queue would only be justified when simulations or users grow substantially.
+- Public visitors cannot edit scores or run forecasts. The optional sync hook uses a shared secret; scheduled refreshes should normally run through GitHub Actions.
+- Forecast runs are synchronous inside the refresh command. A job queue would only be justified when simulations or users grow substantially.
 
 Good next extensions are fair-play data, calibrated expected goals, host advantage, and real extra-time/penalty modeling. Each can replace one visible seam without rewriting the project.

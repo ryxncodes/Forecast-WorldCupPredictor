@@ -1,0 +1,11 @@
+.git
+.github
+backend/.venv
+backend/.pytest_cache
+data/forecast.db
+frontend/.next
+frontend/node_modules
+outputs
+tmp
+**/__pycache__
+**/*.pyc

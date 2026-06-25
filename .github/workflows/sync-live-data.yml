@@ -27,3 +27,4 @@ jobs:
       - run: python scripts/sync_live_data.py
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DISABLE_DB_POOL: "true"

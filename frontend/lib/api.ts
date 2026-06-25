@@ -1,7 +1,11 @@
 import type { Forecast, Match, Standings } from "./types";
 
 function defaultApiUrl() {
-  if (typeof window !== "undefined") return `http://${window.location.hostname}:8000`;
+  if (typeof window !== "undefined") {
+    const local = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+    return local ? `http://${window.location.hostname}:8000` : `${window.location.origin}/backend`;
+  }
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}/backend`;
   return "http://127.0.0.1:8000";
 }
 

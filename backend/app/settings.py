@@ -1,4 +1,5 @@
 import os
+from secrets import compare_digest
 
 
 PUBLIC_MUTATIONS_ENABLED = os.getenv(
@@ -13,3 +14,10 @@ CORS_ORIGINS = [
     ).split(",")
     if origin.strip()
 ]
+
+SYNC_TOKEN = os.getenv("SYNC_TOKEN", "")
+ADMIN_SYNC_ENABLED = os.getenv("ADMIN_SYNC_ENABLED", "false").lower() == "true"
+
+
+def valid_sync_token(token: str | None) -> bool:
+    return bool(SYNC_TOKEN) and bool(token) and compare_digest(token, SYNC_TOKEN)

@@ -23,9 +23,16 @@ def test_dashboard_endpoints_are_public_read_only():
         history = client.get("/forecast/history")
         assert history.status_code == 200 and len(history.json()) >= 1
 
+        health = client.get("/health")
+        assert health.status_code == 200
+        assert health.json()["status"] == "ok"
+
         update = client.post("/matches/1/result", json={"home_score": 2, "away_score": 0})
         assert update.status_code == 404
 
         rerun = client.post("/forecast/run", json={"simulations": 100, "seed": 11})
         assert rerun.status_code == 404
+
+        sync = client.post("/admin/sync", headers={"X-Sync-Token": "wrong"})
+        assert sync.status_code == 404
         assert "round_of_32_probability" in forecast.json()["probabilities"][0]

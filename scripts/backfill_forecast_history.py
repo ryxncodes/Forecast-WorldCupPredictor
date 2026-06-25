@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT / "backend"))
 
 from app.models import ForecastProbability, ForecastRun, Match  # noqa: E402
 from app.models import database  # noqa: E402
+from app.seed_data import seed_database  # noqa: E402
 from app.services.forecast_service import recalculate_ratings, run_and_store_forecast  # noqa: E402
 
 
@@ -27,7 +28,9 @@ def label_for_count(completed: int) -> str:
 
 
 def backfill(simulations: int = 10_000) -> None:
+    database.Base.metadata.create_all(bind=database.engine)
     with database.SessionLocal() as db:
+        seed_database(db)
         matches = list(db.scalars(select(Match).order_by(Match.kickoff, Match.id)))
         originally_completed = {match.id: match.completed for match in matches}
         known_results = [match for match in matches if match.completed]

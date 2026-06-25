@@ -14,12 +14,18 @@ if DATABASE_URL.startswith("postgres://"):
 elif DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
+IS_SQLITE = DATABASE_URL.startswith("sqlite")
+DISABLE_DB_POOL = os.getenv(
+    "DISABLE_DB_POOL",
+    "true" if os.getenv("VERCEL") else "false",
+).lower() == "true"
+
 
 class Base(DeclarativeBase):
     pass
 
 
-if DATABASE_URL.startswith("sqlite"):
+if IS_SQLITE:
     connect_args = {"check_same_thread": False, "timeout": 30}
     engine = create_engine(DATABASE_URL, connect_args=connect_args, poolclass=NullPool, pool_pre_ping=True)
 
@@ -30,7 +36,20 @@ if DATABASE_URL.startswith("sqlite"):
         cursor.execute("PRAGMA busy_timeout=30000")
         cursor.close()
 else:
-    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    postgres_connect_args = {"connect_timeout": 10, "prepare_threshold": None}
+    if DISABLE_DB_POOL:
+        engine = create_engine(
+            DATABASE_URL,
+            connect_args=postgres_connect_args,
+            poolclass=NullPool,
+            pool_pre_ping=True,
+        )
+    else:
+        engine = create_engine(
+            DATABASE_URL,
+            connect_args=postgres_connect_args,
+            pool_pre_ping=True,
+        )
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
