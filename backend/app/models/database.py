@@ -1,9 +1,10 @@
-from pathlib import Path
 import os
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
+
+from ..paths import sqlite_database_path
 
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -14,7 +15,7 @@ if DATABASE_URL:
     elif DATABASE_URL.startswith("postgresql://"):
         DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 else:
-    DATABASE_PATH = Path(__file__).resolve().parents[3] / "data" / "forecast.db"
+    DATABASE_PATH = sqlite_database_path()
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
     DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
 

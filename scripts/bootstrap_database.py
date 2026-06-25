@@ -36,7 +36,7 @@ def bootstrap(simulations: int, backfill_history: bool) -> None:
         if latest_forecast(db) is not None:
             print("Database already has forecast history; leaving it unchanged")
             return
-        metadata = json.loads((ROOT / "data/source_snapshot.json").read_text())
+        metadata = json.loads((ROOT / "backend/app/data/source_snapshot.json").read_text())
         data_as_of = (
             datetime.fromisoformat(metadata["latest_completed_kickoff"].replace("Z", "+00:00"))
             if metadata["latest_completed_kickoff"] else None

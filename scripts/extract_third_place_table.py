@@ -1,7 +1,7 @@
 """Extract FIFA's 495 Annex C bracket assignments from PDF-extracted text.
 
 Usage:
-    python scripts/extract_third_place_table.py regulations.txt data/third_place_combinations.csv
+    python scripts/extract_third_place_table.py regulations.txt backend/app/data/third_place_combinations.csv
 
 The PDF text itself is not committed. The generated CSV is small, reviewable,
 and carries the exact eight third-place assignments for every qualifying-group

@@ -1,15 +1,12 @@
 import csv
 from datetime import datetime
-from pathlib import Path
 
 from sqlalchemy import inspect, text
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .paths import data_path
 from .models import Match, Team
-
-
-DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
 
 def ensure_schema(db: Session) -> None:
@@ -26,7 +23,7 @@ def seed_database(db: Session) -> None:
     if db.scalar(select(Team.id).limit(1)) is not None:
         return
 
-    with (DATA_DIR / "teams.csv").open(newline="") as file:
+    with data_path("teams.csv").open(newline="") as file:
         teams = [
             Team(
                 id=int(row["id"]), name=row["name"], code=row["code"], group=row["group"],
@@ -38,7 +35,7 @@ def seed_database(db: Session) -> None:
     db.add_all(teams)
     db.flush()
 
-    with (DATA_DIR / "fixtures.csv").open(newline="") as file:
+    with data_path("fixtures.csv").open(newline="") as file:
         matches = [
             Match(
                 id=int(row["id"]), match_number=int(row["match_number"]),

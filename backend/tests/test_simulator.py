@@ -1,21 +1,18 @@
 import csv
-from pathlib import Path
 
 import pytest
 
+from app.paths import data_path
 from app.services.simulator import _third_place_assignments, run_tournament_simulation
 
 
-DATA_DIR = Path(__file__).resolve().parents[2] / "data"
-
-
 def load_seed_data():
-    with (DATA_DIR / "teams.csv").open(newline="") as file:
+    with data_path("teams.csv").open(newline="") as file:
         teams = [
             {"id": int(row["id"]), "name": row["name"], "group": row["group"], "rating": float(row["rating"])}
             for row in csv.DictReader(file)
         ]
-    with (DATA_DIR / "fixtures.csv").open(newline="") as file:
+    with data_path("fixtures.csv").open(newline="") as file:
         matches = [
             {
                 "id": int(row["id"]), "group": row["group"],

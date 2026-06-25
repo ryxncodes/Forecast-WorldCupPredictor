@@ -2,14 +2,11 @@ from collections import defaultdict
 from dataclasses import dataclass
 import csv
 from functools import lru_cache
-from pathlib import Path
 import random
 
+from ..paths import data_path
 from .match_model import knockout_winner, simulate_score
 from .standings import build_standings, rank_third_place
-
-
-DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
 
 @dataclass(frozen=True)
@@ -32,7 +29,7 @@ class ForecastRow:
 @lru_cache(maxsize=1)
 def _third_place_assignments() -> dict[str, dict[str, str]]:
     """Load FIFA Annex C as qualifying groups -> winner/opponent groups."""
-    with (DATA_DIR / "third_place_combinations.csv").open(newline="") as file:
+    with data_path("third_place_combinations.csv").open(newline="") as file:
         return {
             row["qualified_groups"]: {
                 winner[1]: row[winner] for winner in ("1A", "1B", "1D", "1E", "1G", "1I", "1K", "1L")

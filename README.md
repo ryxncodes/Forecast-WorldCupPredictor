@@ -13,7 +13,7 @@ The repository contains 48 real teams, 12 groups, 72 group-stage fixtures, curre
 - `backend/app/models/` contains the small SQLAlchemy persistence layer. SQLite is the no-setup local default, while `DATABASE_URL` points hosted deployments at Supabase Postgres.
 - `backend/app/api/` exposes teams, fixtures, standings, match details, health checks, and forecasts.
 - `frontend/` uses separate Forecast, Third Place, History, and Matches routes. The dedicated third-place page shows the live eight-team cut line and projected best-third paths, so surprising probabilities are inspectable rather than opaque.
-- `data/` keeps the real dated seed snapshot, source hashes, source notes, and FIFA's Annex C lookup visible instead of burying them in code.
+- `backend/app/data/` keeps the real dated seed snapshot, source hashes, source notes, and FIFA's Annex C lookup visible while ensuring the FastAPI service bundles it on Vercel.
 - `scripts/` downloads source data, recalculates pre-tournament Elo ratings, and rebuilds the CSV snapshot.
 
 The data builder replays more than 49,000 international-result records chronologically through 10 June 2026. Every national team begins at 1500 and uses K=30. World Cup results begin the following day, so they are applied exactly once by the application.
@@ -90,7 +90,7 @@ Run one command from the repository root:
 backend/.venv/bin/python scripts/sync_live_data.py
 ```
 
-It downloads the ESPN no-key scoreboard, the openfootball fixture snapshot, and the historical results dataset; validates the 72-match schedule; updates the database; and stores a new forecast only when a completed score changed. `data/source_snapshot.json` records retrieval time, hashes, cutoff, completed count, and the exact result fingerprint.
+It downloads the ESPN no-key scoreboard, the openfootball fixture snapshot, and the historical results dataset; validates the 72-match schedule; updates the database; and stores a new forecast only when a completed score changed. `backend/app/data/source_snapshot.json` records retrieval time, hashes, cutoff, completed count, and the exact result fingerprint.
 
 For the same automatic behavior during local development, run a third terminal:
 
@@ -108,7 +108,7 @@ backend/.venv/bin/python scripts/backfill_forecast_history.py
 
 This replaces forecast history with deterministic pre-tournament, post-matchday-one, and post-matchday-two snapshots, recalculating ratings from only the results known at each point before restoring the live database state.
 
-The tournament format and bracket are sourced from FIFA. Completed scores come from ESPN's public scoreboard; machine-readable fixtures come from openfootball and are checked against FIFA's schedule. Historical results come from martj42's CC0 dataset. Exact URLs and caveats are documented in `data/SOURCES.md`.
+The tournament format and bracket are sourced from FIFA. Completed scores come from ESPN's public scoreboard; machine-readable fixtures come from openfootball and are checked against FIFA's schedule. Historical results come from martj42's CC0 dataset. Exact URLs and caveats are documented in `backend/app/data/SOURCES.md`.
 
 ## Vercel + Supabase deployment
 

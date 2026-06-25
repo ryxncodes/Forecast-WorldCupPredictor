@@ -1,0 +1,23 @@
+{
+  "generated_at": "2026-06-25T03:25:39+00:00",
+  "rating_cutoff": "2026-06-10",
+  "model_version": "2026.1-calibrated",
+  "completed_results": 54,
+  "latest_completed_kickoff": "2026-06-25T01:00Z",
+  "result_fingerprint": "8197d08cdba52ef5738d50fa953fd42c44f0699fd6fe8523659b6f168656521e",
+  "sources": {
+    "live_results": {
+      "name": "ESPN public scoreboard",
+      "url": "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719&limit=200",
+      "sha256": "655de4538b319566330217e9192b834bb70e1a8a2aa97b428e13b1d0df5bc884"
+    },
+    "world_cup_json": {
+      "url": "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json",
+      "sha256": "378afce690d1a757b9467e8b10113f621ccab43cdceaf5c1c450e17e94326ae4"
+    },
+    "international_results": {
+      "url": "https://raw.githubusercontent.com/martj42/international_results/master/results.csv",
+      "sha256": "037bca5e3c12ae53aaf62ee1b524d66194cd26c1d60221b97c034efb458d6b22"
+    }
+  }
+}

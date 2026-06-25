@@ -39,11 +39,11 @@ def refresh_files() -> None:
 
 
 def sync_database(simulations: int = 10_000) -> bool:
-    metadata = json.loads((ROOT / "data/source_snapshot.json").read_text())
+    metadata = json.loads((ROOT / "backend/app/data/source_snapshot.json").read_text())
     database.Base.metadata.create_all(bind=database.engine)
     with database.SessionLocal() as db:
         seed_database(db)
-        with (ROOT / "data/fixtures.csv").open(newline="") as file:
+        with (ROOT / "backend/app/data/fixtures.csv").open(newline="") as file:
             for row in csv.DictReader(file):
                 match = db.get(Match, int(row["id"]))
                 if match is None:

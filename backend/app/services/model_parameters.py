@@ -1,8 +1,8 @@
 import json
-from pathlib import Path
 
+from ..paths import data_path
 
-_PATH = Path(__file__).resolve().parents[2] / "data" / "model_parameters.json"
+_PATH = data_path("model_parameters.json")
 PARAMETERS = json.loads(_PATH.read_text())
 
 MODEL_VERSION = PARAMETERS["version"]

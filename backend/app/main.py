@@ -1,7 +1,6 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
 import json
-from pathlib import Path
 import sys
 
 from fastapi import FastAPI, Header, HTTPException
@@ -10,6 +9,7 @@ from sqlalchemy import text
 
 from .api import routes_forecast, routes_matches, routes_standings, routes_teams
 from .models import database
+from .paths import PROJECT_DIR, data_path
 from .settings import ADMIN_SYNC_ENABLED, CORS_ORIGINS, valid_sync_token
 from .seed_data import seed_database
 from .services.forecast_service import latest_forecast, recalculate_ratings, run_and_store_forecast
@@ -22,8 +22,7 @@ async def lifespan(_: FastAPI):
         seed_database(db)
         recalculate_ratings(db)
         if latest_forecast(db) is None:
-            metadata_path = Path(__file__).resolve().parents[2] / "data" / "source_snapshot.json"
-            metadata = json.loads(metadata_path.read_text())
+            metadata = json.loads(data_path("source_snapshot.json").read_text())
             data_as_of = datetime.fromisoformat(
                 metadata["latest_completed_kickoff"].replace("Z", "+00:00")
             )
@@ -82,7 +81,7 @@ def admin_sync(x_sync_token: str | None = Header(default=None)):
         raise HTTPException(status_code=404, detail="Manual sync endpoint is disabled")
     if not valid_sync_token(x_sync_token):
         raise HTTPException(status_code=401, detail="Invalid sync token")
-    root = Path(__file__).resolve().parents[2]
+    root = PROJECT_DIR
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
     from scripts.sync_live_data import refresh_files, sync_database
