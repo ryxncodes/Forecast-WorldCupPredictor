@@ -7,7 +7,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from .api import routes_forecast, routes_matches, routes_standings, routes_teams
+from .api import routes_accuracy, routes_forecast, routes_matches, routes_standings, routes_teams
 from .models import database
 from .paths import PROJECT_DIR, data_path
 from .settings import ADMIN_SYNC_ENABLED, CORS_ORIGINS, valid_sync_token
@@ -51,6 +51,7 @@ app.include_router(routes_teams.router)
 app.include_router(routes_matches.router)
 app.include_router(routes_standings.router)
 app.include_router(routes_forecast.router)
+app.include_router(routes_accuracy.router)
 
 
 @app.get("/")

@@ -19,3 +19,7 @@ export function ClockIcon({ size = 17, className }: IconProps) {
 export function ChevronIcon({ size = 16, className }: IconProps) {
   return <svg className={className} width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 6 4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }
+
+export function RefreshCwIcon({ size = 16, className }: IconProps) {
+  return <svg className={className} width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.2 8a5.2 5.2 0 0 1-8.9 3.7L3 10.4M2.8 8a5.2 5.2 0 0 1 8.9-3.7L13 5.6M3 13v-2.6h2.6M13 3v2.6h-2.6" stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+}

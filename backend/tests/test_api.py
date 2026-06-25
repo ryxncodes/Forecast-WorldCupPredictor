@@ -22,6 +22,10 @@ def test_dashboard_endpoints_are_public_read_only():
 
         history = client.get("/forecast/history")
         assert history.status_code == 200 and len(history.json()) >= 1
+        accuracy = client.get("/accuracy")
+        assert accuracy.status_code == 200
+        assert accuracy.json()["completed_matches"] >= 1
+        assert "brier_score" in accuracy.json()["matches"][0]
 
         health = client.get("/health")
         assert health.status_code == 200

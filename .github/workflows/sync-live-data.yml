@@ -3,7 +3,10 @@ name: Sync live World Cup data
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/10 * * * *"
+    # GitHub cron is UTC. During the tournament this runs 12:00 PM-2:30 AM EDT.
+    - cron: "*/10 16-23 * * *"
+    - cron: "*/10 0-5 * * *"
+    - cron: "0,10,20,30 6 * * *"
 
 concurrency:
   group: world-cup-live-sync

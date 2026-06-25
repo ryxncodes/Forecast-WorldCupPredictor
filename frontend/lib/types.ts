@@ -107,3 +107,43 @@ export type MatchPrediction = {
   home_expected_goals: number;
   away_expected_goals: number;
 };
+
+export type AccuracyMatch = {
+  match_id: number;
+  match_number: number;
+  kickoff: string;
+  group: string;
+  home_team: string;
+  away_team: string;
+  home_score: number;
+  away_score: number;
+  home_expected_goals: number;
+  away_expected_goals: number;
+  home_win_probability: number;
+  draw_probability: number;
+  away_win_probability: number;
+  predicted_outcome: "home" | "draw" | "away";
+  predicted_outcome_label: string;
+  actual_outcome: "home" | "draw" | "away";
+  actual_outcome_label: string;
+  picked_correct: boolean;
+  predicted_home_score: number;
+  predicted_away_score: number;
+  predicted_score_probability: number;
+  exact_score: boolean;
+  brier_score: number;
+  log_loss: number;
+  goal_error: number;
+};
+
+export type AccuracyReport = {
+  completed_matches: number;
+  picked_correct: number;
+  pick_accuracy: number;
+  exact_scores: number;
+  exact_score_rate: number;
+  average_brier_score: number;
+  average_log_loss: number;
+  average_goal_error: number;
+  matches: AccuracyMatch[];
+};

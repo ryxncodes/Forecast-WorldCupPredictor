@@ -1,4 +1,4 @@
-import type { Forecast, Match, Standings } from "./types";
+import type { AccuracyReport, Forecast, Match, Standings } from "./types";
 
 function cleanApiUrl(value: string | undefined) {
   const trimmed = value?.trim();
@@ -66,6 +66,10 @@ export function loadForecastHistory() {
 
 export function loadMatches() {
   return request<Match[]>("/matches");
+}
+
+export function loadAccuracy() {
+  return request<AccuracyReport>("/accuracy");
 }
 
 export async function loadThirdPlacePage() {

@@ -124,9 +124,9 @@ main { margin: 0 auto; max-width: 1500px; padding: 28px 32px 38px; }
 h1, h2 { font-family: var(--font-serif); margin: 0; }
 h1 { font-size: clamp(36px, 3.1vw, 48px); letter-spacing: -.035em; line-height: 1.12; }
 .section-heading p { color: var(--text-soft); font-size: 13px; line-height: 1.65; margin: 10px 0 0; max-width: 650px; }
-.data-status { background: var(--green-soft); border: 1px solid #bad6c7; display: grid; flex: 0 0 auto; gap: 3px; margin-left: 24px; min-width: 230px; padding: 11px 14px; }
-.data-status strong { color: var(--green); font-size: 12px; }
-.data-status span { color: var(--ink); font-size: 11px; }
+.data-status { background: var(--green-soft); border-left: 3px solid var(--green); display: grid; flex: 0 0 auto; gap: 2px; margin-left: 20px; min-width: 190px; padding: 7px 10px; }
+.data-status strong { color: var(--green); font-size: 11px; line-height: 1.35; }
+.data-status span { color: var(--muted); font-size: 10px; font-weight: 700; }
 .data-status small { color: var(--muted); font-size: 9px; }
 h2 { font-size: 24px; letter-spacing: -.025em; }
 
@@ -204,6 +204,26 @@ table { border-collapse: collapse; width: 100%; }
 .history-snapshots.compact strong { font-size: 13px; }
 .history-empty { background: var(--surface-subtle); border: 1px dashed var(--line-dark); display: grid; gap: 5px; margin-top: 18px; padding: 18px; }
 .history-empty span { color: var(--muted); font-size: 11px; }
+
+.accuracy-section { padding: 6px 0 28px; scroll-margin-top: 84px; }
+.page-actions { display: flex; justify-content: flex-end; margin: -34px 0 18px; }
+.accuracy-scorecards { display: grid; gap: 10px; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 22px 0; }
+.accuracy-scorecards div { border: 1px solid var(--line); display: grid; gap: 4px; min-height: 88px; padding: 12px; }
+.accuracy-scorecards span { color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.accuracy-scorecards strong { color: var(--green); font-size: 24px; font-variant-numeric: tabular-nums; line-height: 1; }
+.accuracy-scorecards small { color: var(--text-soft); font-size: 10px; }
+.accuracy-table-wrap { border: 1px solid var(--line-dark); max-height: 650px; overflow: auto; }
+.accuracy-table { font-size: 11px; min-width: 980px; }
+.accuracy-table th, .accuracy-table td { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: middle; }
+.accuracy-table th:last-child, .accuracy-table td:last-child { border-right: 0; }
+.accuracy-table thead th { background: var(--surface-subtle); color: var(--text-soft); font-size: 10px; position: sticky; top: 0; z-index: 2; }
+.accuracy-table td { font-variant-numeric: tabular-nums; }
+.accuracy-table td > strong, .accuracy-table td > span, .accuracy-table td > small { display: block; }
+.accuracy-table td > strong { color: var(--ink); font-size: 12px; }
+.accuracy-table td > span, .accuracy-table td > small { color: var(--muted); margin-top: 3px; }
+.accuracy-chip { border: 1px solid var(--line-dark); display: inline-block !important; font-size: 9px; font-weight: 900; margin: 0 0 5px; padding: 3px 7px; text-transform: uppercase; width: fit-content; }
+.accuracy-chip.correct { background: var(--green-soft); border-color: var(--green); color: var(--green); }
+.accuracy-chip.wrong { background: var(--red-soft); border-color: var(--red-muted); color: var(--red-muted); }
 
 .third-page-intro { align-items: start; display: grid; gap: 48px; grid-template-columns: minmax(0, 1fr) 310px; }
 .eyebrow { color: var(--green); display: block; font-size: 10px; font-weight: 800; letter-spacing: .12em; margin-bottom: 8px; text-transform: uppercase; }
@@ -331,13 +351,14 @@ table { border-collapse: collapse; width: 100%; }
   .standings-section { border-right: 0; padding-right: 0; }
   .third-page-grid { grid-template-columns: 1fr; }
   .history-workspace { grid-template-columns: 190px minmax(0, 1fr); }
+  .accuracy-scorecards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .subsection-heading { min-height: 0; margin-bottom: 12px; }
 }
 
 @media (max-width: 700px) {
   body { font-size: 13px; }
   .site-header { grid-template-columns: 1fr auto; height: 96px; padding: 0 16px; }
-  .site-header nav { grid-column: 1 / -1; grid-row: 2; height: 38px; justify-content: center; }
+  .site-header nav { grid-column: 1 / -1; grid-row: 2; height: 38px; justify-content: flex-start; overflow-x: auto; }
   .site-header nav a { padding-top: 0; }
   .brand { font-size: 20px; }
   .simulation-count { display: none; }
@@ -361,6 +382,8 @@ table { border-collapse: collapse; width: 100%; }
   .history-team-list button.selected { box-shadow: inset 3px 0 var(--green); }
   .history-detail { padding: 15px 12px; }
   .history-detail-heading { align-items: stretch; flex-direction: column; gap: 12px; }
+  .page-actions { justify-content: flex-start; margin: 14px 0; }
+  .accuracy-scorecards { grid-template-columns: 1fr; }
   .third-page-intro { gap: 18px; grid-template-columns: 1fr; }
   .matches-title { align-items: flex-start; gap: 12px; }
   .match-filters { gap: 8px; }

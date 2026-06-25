@@ -40,12 +40,16 @@ function eventLabel(event: MatchTimelineEvent) {
 export function MatchList({ matches }: Props) {
   const [filter, setFilter] = useState<"all" | "live" | "upcoming" | "completed">("all");
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const visibleMatches = useMemo(() => matches.filter((match) => (
-    filter === "all"
-    || (filter === "completed" && match.status === "post")
-    || (filter === "live" && match.status === "in")
-    || (filter === "upcoming" && match.status === "pre")
-  )), [filter, matches]);
+  const visibleMatches = useMemo(() => {
+    const filtered = matches.filter((match) => (
+      filter === "all"
+      || (filter === "completed" && match.status === "post")
+      || (filter === "live" && match.status === "in")
+      || (filter === "upcoming" && match.status === "pre")
+    ));
+    if (filter !== "completed") return filtered;
+    return [...filtered].sort((a, b) => new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime());
+  }, [filter, matches]);
 
   return (
     <section id="matches" className="matches-section" aria-labelledby="matches-heading">

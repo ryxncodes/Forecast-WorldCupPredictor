@@ -50,6 +50,7 @@ export function Header({ simulations }: Props) {
         <Link className={pathname === "/third-place" ? "active" : ""} href="/third-place">Third place</Link>
         <Link className={pathname === "/history" ? "active" : ""} href="/history">History</Link>
         <Link className={pathname === "/matches" ? "active" : ""} href="/matches">Matches</Link>
+        <Link className={pathname === "/accuracy" ? "active" : ""} href="/accuracy">Accuracy</Link>
       </nav>
       <div className="header-actions">
         {simulations ? <span className="simulation-count"><span className="auto-status-dot" />Automatically updated · {simulations.toLocaleString()} simulations</span> : null}
