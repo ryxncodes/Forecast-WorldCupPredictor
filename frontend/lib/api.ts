@@ -3,6 +3,9 @@ import type { Forecast, Match, Standings } from "./types";
 function cleanApiUrl(value: string | undefined) {
   const trimmed = value?.trim();
   if (!trimmed || trimmed === "/") return null;
+  if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://") && !trimmed.startsWith("/backend")) {
+    return null;
+  }
   return trimmed.replace(/\/+$/, "");
 }
 
