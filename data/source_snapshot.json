@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-06-25T02:30:39+00:00",
+  "generated_at": "2026-06-25T02:59:39+00:00",
   "rating_cutoff": "2026-06-10",
   "model_version": "2026.1-calibrated",
-  "completed_results": 52,
-  "latest_completed_kickoff": "2026-06-24T22:00Z",
-  "result_fingerprint": "a2836aeab74344ce3039255a5c4ca760be184708282451188b3ce1394e593861",
+  "completed_results": 54,
+  "latest_completed_kickoff": "2026-06-25T01:00Z",
+  "result_fingerprint": "8197d08cdba52ef5738d50fa953fd42c44f0699fd6fe8523659b6f168656521e",
   "sources": {
     "live_results": {
       "name": "ESPN public scoreboard",
       "url": "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719&limit=200",
-      "sha256": "f80fd51b5de2eec18d90f43042c7bbc31c91a64067604fba3a4f4d9e6ab7a9ea"
+      "sha256": "bd474f374d7b885a10f814a3e1af7fcfba98576036e7cc24664007b113a37a79"
     },
     "world_cup_json": {
       "url": "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json",

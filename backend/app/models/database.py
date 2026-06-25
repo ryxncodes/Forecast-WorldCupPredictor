@@ -6,13 +6,17 @@ from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 
-DATABASE_PATH = Path(__file__).resolve().parents[3] / "data" / "forecast.db"
-DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DATABASE_PATH}")
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
-elif DATABASE_URL.startswith("postgresql://"):
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if DATABASE_URL:
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
+    elif DATABASE_URL.startswith("postgresql://"):
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+else:
+    DATABASE_PATH = Path(__file__).resolve().parents[3] / "data" / "forecast.db"
+    DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
 
 IS_SQLITE = DATABASE_URL.startswith("sqlite")
 DISABLE_DB_POOL = os.getenv(
