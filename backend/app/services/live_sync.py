@@ -7,7 +7,7 @@ from urllib.request import Request, urlopen
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from ..models import Match
+from ..models import Match, SyncStatus
 from .accuracy_service import backfill_completed_match_predictions, lock_upcoming_match_predictions
 from .forecast_service import latest_forecast, recalculate_ratings, run_and_store_forecast
 from .model_parameters import MODEL_VERSION
@@ -195,17 +195,19 @@ def refresh_live_matches(db: Session, payload: dict | None = None) -> dict:
 def refresh_live_data(db: Session, simulations: int = 10_000) -> dict:
     before_fingerprint = result_fingerprint(db)
     match_summary = refresh_live_matches(db)
-    recalculate_ratings(db)
-    backfilled_predictions = backfill_completed_match_predictions(db)
-    locked_predictions = lock_upcoming_match_predictions(db)
     after_fingerprint = result_fingerprint(db)
     forecast_changed = False
+    backfilled_predictions = 0
+    locked_predictions = 0
     previous = latest_forecast(db)
     if (
         previous is None
         or previous.result_fingerprint != after_fingerprint
         or previous.model_version != MODEL_VERSION
     ):
+        recalculate_ratings(db)
+        backfilled_predictions = backfill_completed_match_predictions(db)
+        locked_predictions = lock_upcoming_match_predictions(db)
         completed_results = match_summary["completed_matches"]
         run_and_store_forecast(
             db,
@@ -217,10 +219,13 @@ def refresh_live_data(db: Session, simulations: int = 10_000) -> dict:
             result_fingerprint=after_fingerprint,
         )
         forecast_changed = True
-    return {
+    summary = {
         **match_summary,
         "result_changed": before_fingerprint != after_fingerprint,
         "forecast_changed": forecast_changed,
         "backfilled_predictions": backfilled_predictions,
         "locked_predictions": locked_predictions,
     }
+    db.add(SyncStatus(status="ok", **summary))
+    db.commit()
+    return summary

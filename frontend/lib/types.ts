@@ -38,6 +38,63 @@ export type Forecast = {
   probabilities: ForecastRow[];
 };
 
+export type SyncStatus = {
+  checked_at: string | null;
+  status: string;
+  forecast_changed: boolean;
+  result_changed: boolean;
+  completed_matches: number;
+};
+
+export type Dashboard = {
+  forecast: Forecast;
+  standings: Standings;
+  sync_status: SyncStatus;
+};
+
+export type BracketTeam = {
+  team_id: number;
+  team: string;
+  group: string;
+  champion_probability: number;
+  final_probability: number;
+  semifinal_probability: number;
+};
+
+export type BracketMatch = {
+  match_number: number;
+  round: string;
+  home: BracketTeam;
+  away: BracketTeam;
+  home_slot?: string;
+  away_slot?: string;
+  home_source?: number;
+  away_source?: number;
+  home_expected_goals: number;
+  away_expected_goals: number;
+  home_advance_probability: number;
+  away_advance_probability: number;
+  projected_winner: BracketTeam;
+};
+
+export type BracketRound = {
+  key: string;
+  label: string;
+  matches: BracketMatch[];
+};
+
+export type BracketProjection = {
+  forecast: {
+    id: number;
+    created_at: string;
+    completed_results: number;
+    simulations: number;
+  };
+  favorite: BracketTeam;
+  finalists: BracketTeam[];
+  rounds: BracketRound[];
+};
+
 export type Standing = {
   team_id: number;
   team: string;

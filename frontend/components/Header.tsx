@@ -47,6 +47,7 @@ export function Header({ simulations }: Props) {
       <Link className="brand" href="/">The Forecast</Link>
       <nav aria-label="Dashboard sections">
         <Link className={pathname === "/" ? "active" : ""} href="/">Forecast</Link>
+        <Link className={pathname === "/bracket" ? "active" : ""} href="/bracket">Bracket</Link>
         <Link className={pathname === "/third-place" ? "active" : ""} href="/third-place">Third place</Link>
         <Link className={pathname === "/history" ? "active" : ""} href="/history">History</Link>
         <Link className={pathname === "/matches" ? "active" : ""} href="/matches">Matches</Link>

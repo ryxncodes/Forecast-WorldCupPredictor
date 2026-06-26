@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { Forecast, ProbabilityKey } from "@/lib/types";
+import type { Forecast, ProbabilityKey, SyncStatus } from "@/lib/types";
 import { SortIcon } from "./Icons";
 
 const columns: { key: ProbabilityKey; label: string; optional?: boolean }[] = [
@@ -56,7 +56,7 @@ function LocalUpdateTime({ value }: { value: string | null }) {
   return <time dateTime={value ?? undefined}>{formatDataDateTime(value, useLocalTime ? "local" : "utc")}</time>;
 }
 
-export function ForecastTable({ forecast }: { forecast: Forecast }) {
+export function ForecastTable({ forecast, syncStatus }: { forecast: Forecast; syncStatus?: SyncStatus | null }) {
   const rows = forecast.probabilities;
   const [sortKey, setSortKey] = useState<ProbabilityKey>("champion_probability");
   const sortedRows = useMemo(
@@ -73,7 +73,7 @@ export function ForecastTable({ forecast }: { forecast: Forecast }) {
     <section id="forecast" className="forecast-section" aria-labelledby="forecast-heading">
       <div className="section-heading">
         <div><h1 id="forecast-heading">World Cup 2026 forecast</h1><p>An adaptive machine learning predictor updates team strength from completed results, projects goal probabilities for the remaining games, and simulates the tournament bracket thousands of times.</p></div>
-        <div className="data-status"><strong>Updated <LocalUpdateTime value={forecast.created_at} /></strong><span>{forecast.completed_results}/72 matches complete</span></div>
+        <div className="data-status"><strong>Forecast updated <LocalUpdateTime value={forecast.created_at} /></strong><span>{forecast.completed_results}/72 matches complete</span>{syncStatus?.checked_at ? <small>Scores checked <LocalUpdateTime value={syncStatus.checked_at} /></small> : null}</div>
       </div>
       <div className="table-scroll">
         <table className="forecast-table">

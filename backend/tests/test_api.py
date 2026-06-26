@@ -11,6 +11,7 @@ def test_dashboard_endpoints_are_public_read_only(monkeypatch):
         matches = client.get("/matches")
         standings = client.get("/standings")
         forecast = client.get("/forecast/latest")
+        bracket = client.get("/bracket")
 
         assert teams.status_code == 200 and len(teams.json()) == 48
         assert matches.status_code == 200 and len(matches.json()) == 72
@@ -21,6 +22,9 @@ def test_dashboard_endpoints_are_public_read_only(monkeypatch):
         assert len(standings.json()["best_third"]) == 12
         assert forecast.status_code == 200 and len(forecast.json()["probabilities"]) == 48
         assert forecast.json()["completed_results"] >= 1
+        assert bracket.status_code == 200
+        assert len(bracket.json()["rounds"]) == 5
+        assert len(bracket.json()["rounds"][0]["matches"]) == 16
 
         history = client.get("/forecast/history")
         assert history.status_code == 200 and len(history.json()) >= 1

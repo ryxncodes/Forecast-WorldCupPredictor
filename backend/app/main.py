@@ -7,7 +7,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from .api import routes_accuracy, routes_forecast, routes_matches, routes_standings, routes_teams
+from .api import routes_accuracy, routes_bracket, routes_dashboard, routes_forecast, routes_matches, routes_standings, routes_teams
 from .models import database
 from .paths import PROJECT_DIR, data_path
 from .settings import ADMIN_SYNC_ENABLED, CORS_ORIGINS, valid_cron_authorization, valid_sync_token
@@ -22,10 +22,10 @@ async def lifespan(_: FastAPI):
     database.Base.metadata.create_all(bind=database.engine)
     with database.SessionLocal() as db:
         seed_database(db)
-        recalculate_ratings(db)
-        backfill_completed_match_predictions(db)
-        lock_upcoming_match_predictions(db)
         if latest_forecast(db) is None:
+            recalculate_ratings(db)
+            backfill_completed_match_predictions(db)
+            lock_upcoming_match_predictions(db)
             metadata = json.loads(data_path("source_snapshot.json").read_text())
             data_as_of = datetime.fromisoformat(
                 metadata["latest_completed_kickoff"].replace("Z", "+00:00")
@@ -56,6 +56,8 @@ app.include_router(routes_matches.router)
 app.include_router(routes_standings.router)
 app.include_router(routes_forecast.router)
 app.include_router(routes_accuracy.router)
+app.include_router(routes_bracket.router)
+app.include_router(routes_dashboard.router)
 
 
 @app.get("/")

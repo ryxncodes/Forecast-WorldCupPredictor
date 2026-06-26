@@ -1,4 +1,4 @@
-import type { AccuracyReport, Forecast, Match, Standings } from "./types";
+import type { AccuracyReport, BracketProjection, Dashboard, Forecast, Match, Standings } from "./types";
 
 function cleanApiUrl(value: string | undefined) {
   const trimmed = value?.trim();
@@ -51,11 +51,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export async function loadDashboard() {
-  const [forecast, standings] = await Promise.all([
-    request<Forecast>("/forecast/latest"),
-    request<Standings>("/standings"),
-  ]);
-  return { forecast, standings };
+  return request<Dashboard>("/dashboard");
 }
 
 export function loadForecastHistory() {
@@ -73,9 +69,9 @@ export function loadAccuracy() {
 }
 
 export async function loadThirdPlacePage() {
-  const [forecast, standings] = await Promise.all([
-    request<Forecast>("/forecast/latest"),
-    request<Standings>("/standings"),
-  ]);
-  return { forecast, standings };
+  return loadDashboard();
+}
+
+export function loadBracket() {
+  return request<BracketProjection>("/bracket");
 }
