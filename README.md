@@ -90,7 +90,7 @@ Run one command from the repository root:
 backend/.venv/bin/python scripts/sync_live_data.py
 ```
 
-It downloads the ESPN no-key scoreboard, the openfootball fixture snapshot, and the historical results dataset; validates the 72-match schedule; updates the database; and stores a new forecast only when a completed score changed. `backend/app/data/source_snapshot.json` records retrieval time, hashes, cutoff, completed count, and the exact result fingerprint.
+It fetches the ESPN no-key scoreboard, reconciles live score/status fields directly into the database, recalculates ratings, and stores a new forecast only when a completed score changed. The checked-in seed files remain the bootstrap snapshot; scheduled live syncs do not rewrite CSV files.
 
 For the same automatic behavior during local development, run a third terminal:
 
@@ -118,6 +118,7 @@ This repo is prepared for a single Vercel project using Services:
 - `backend/main.py` deploys as the FastAPI service at `/backend`.
 - Supabase Postgres stores teams, matches, standings inputs, and forecast history.
 - GitHub Actions polls ESPN's public scoreboard every ten minutes and writes new snapshots only when completed results change.
+- Vercel Hobby allows cron jobs only once per day, so high-frequency live updates are intentionally handled by GitHub Actions instead of Vercel Cron.
 
 Recommended setup:
 

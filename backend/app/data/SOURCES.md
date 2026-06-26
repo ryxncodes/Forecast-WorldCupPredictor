@@ -24,8 +24,10 @@ completed scores and status. The builder refuses the update unless all 48 teams,
 FIFA-checked schedule. ESPN's endpoint is public and free but not a documented
 or guaranteed API, so openfootball remains a useful independent fixture source.
 
-`scripts/sync_live_data.py` refreshes the files, updates the database, and stores
-a new forecast only when the completed-result fingerprint changes.
+`scripts/fetch_source_data.py` refreshes the seed files and validates the
+fixture snapshot. `scripts/sync_live_data.py` fetches ESPN's live scoreboard,
+reconciles match status and scores into the database, and stores a new forecast
+only when the completed-result fingerprint changes.
 
 ## Pre-tournament ratings
 
