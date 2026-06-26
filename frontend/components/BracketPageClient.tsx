@@ -57,7 +57,7 @@ function TeamLine({ team, probability, winner }: { team: BracketTeam; probabilit
 function MatchCard({ match, connectPair }: { match: BracketMatch; connectPair: boolean }) {
   const homeWins = match.projected_winner.team_id === match.home.team_id;
   return (
-    <article className={connectPair ? "bracket-match connector-pair" : "bracket-match"}>
+    <article className={connectPair ? "bracket-match connector-pair" : "bracket-match"} data-match-id={match.match_number}>
       <div className="bracket-match-meta"><span>#{match.match_number}</span><span>{knockoutDates[match.match_number]}</span></div>
       <TeamLine team={match.home} probability={match.home_advance_probability} winner={homeWins} />
       <TeamLine team={match.away} probability={match.away_advance_probability} winner={!homeWins} />
