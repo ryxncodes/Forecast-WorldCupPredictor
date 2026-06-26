@@ -25,6 +25,12 @@ def test_dashboard_endpoints_are_public_read_only(monkeypatch):
         assert bracket.status_code == 200
         assert len(bracket.json()["rounds"]) == 5
         assert len(bracket.json()["rounds"][0]["matches"]) == 16
+        assert [match["match_number"] for match in bracket.json()["rounds"][0]["matches"]] == [
+            74, 77, 73, 75, 83, 84, 81, 82, 76, 78, 79, 80, 86, 88, 85, 87
+        ]
+        assert [match["match_number"] for match in bracket.json()["rounds"][1]["matches"]] == [
+            89, 90, 93, 94, 91, 92, 95, 96
+        ]
         assert bracket.json()["rounds"][-1]["matches"][0]["match_number"] == 104
 
         history = client.get("/forecast/history")

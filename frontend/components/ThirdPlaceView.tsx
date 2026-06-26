@@ -1,4 +1,4 @@
-import type { Forecast, Standings } from "@/lib/types";
+import type { Forecast, Standing, Standings } from "@/lib/types";
 
 
 function signed(value: number) {
@@ -7,8 +7,12 @@ function signed(value: number) {
 
 export function ThirdPlaceView({ standings, forecast }: { standings: Standings; forecast: Forecast }) {
   const positionByTeam = new Map<number, number>();
+  const standingByTeam = new Map<number, Standing>();
   for (const rows of Object.values(standings.groups)) {
-    rows.forEach((row, index) => positionByTeam.set(row.team_id, index + 1));
+    rows.forEach((row, index) => {
+      positionByTeam.set(row.team_id, index + 1);
+      standingByTeam.set(row.team_id, row);
+    });
   }
   const projected = forecast.probabilities
     .filter((row) => row.best_third_probability > 0)
@@ -23,8 +27,8 @@ export function ThirdPlaceView({ standings, forecast }: { standings: Standings; 
     <div className="third-page-grid">
       <section aria-labelledby="current-third-heading">
         <div className="subsection-heading"><h2 id="current-third-heading">If the groups ended now</h2><p>Green rows sit above the eight-team qualification line. Groups are unfinished, so the team occupying third can still change.</p></div>
-        <div className="third-ranking-table"><table><thead><tr><th>#</th><th>Team</th><th>Group</th><th>Pts</th><th>GD</th><th>GF</th><th>Status</th></tr></thead><tbody>
-          {standings.best_third.map((row, index) => <tr className={index < 8 ? "qualifying" : "outside"} key={row.team_id}><td>{index + 1}</td><th scope="row">{row.team}</th><td>{row.group}</td><td>{row.points}</td><td>{signed(row.goal_difference)}</td><td>{row.goals_for}</td><td><span className={index < 8 ? "status-chip in" : "status-chip out"}>{index < 8 ? "In" : "Out"}</span></td></tr>)}
+        <div className="third-ranking-table"><table><thead><tr><th>#</th><th>Team</th><th>Group</th><th>P</th><th>Pts</th><th>GD</th><th>GF</th><th>Status</th></tr></thead><tbody>
+          {standings.best_third.map((row, index) => <tr className={index < 8 ? "qualifying" : "outside"} key={row.team_id}><td>{index + 1}</td><th scope="row">{row.team}</th><td>{row.group}</td><td>{row.played}</td><td>{row.points}</td><td>{signed(row.goal_difference)}</td><td>{row.goals_for}</td><td><span className={index < 8 ? "status-chip in" : "status-chip out"}>{index < 8 ? "In" : "Out"}</span></td></tr>)}
         </tbody></table></div>
       </section>
 
@@ -34,11 +38,12 @@ export function ThirdPlaceView({ standings, forecast }: { standings: Standings; 
           {projected.map((row) => {
             const percent = Math.round(row.best_third_probability * 100);
             const displayPercent = row.best_third_probability < 0.005 ? "<1%" : `${percent}%`;
-            return <div className="third-projection-row" key={row.team_id}><div><strong>{row.team}</strong><span>Group {row.group} · currently {positionByTeam.get(row.team_id) ?? "–"}{positionByTeam.has(row.team_id) ? ["st", "nd", "rd", "th"][Math.min(positionByTeam.get(row.team_id)!, 4) - 1] : ""}</span></div><div className="third-projection-value"><strong>{displayPercent}</strong><span className="probability-track"><span style={{ width: `${Math.max(percent, 1)}%` }} /></span></div></div>;
+            const standing = standingByTeam.get(row.team_id);
+            return <div className="third-projection-row" key={row.team_id}><div><strong>{row.team}</strong><span>Group {row.group} · {standing?.played ?? 0} played · currently {positionByTeam.get(row.team_id) ?? "–"}{positionByTeam.has(row.team_id) ? ["st", "nd", "rd", "th"][Math.min(positionByTeam.get(row.team_id)!, 4) - 1] : ""}</span></div><div className="third-projection-value"><strong>{displayPercent}</strong><span className="probability-track"><span style={{ width: `${Math.max(percent, 1)}%` }} /></span></div></div>;
           })}
         </div>
       </section>
     </div>
-    <p className="third-page-note">The current table uses the public score feed. Fair-play card totals and official FIFA ranking are not yet in the dataset, so the app uses its pre-tournament rating only as a final deterministic fallback when every available football criterion is still tied.</p>
+    <p className="third-page-note">The current table uses the public score feed. Projections keep completed results fixed, simulate only remaining group matches, and isolate advancement specifically as one of the eight best third-place teams. Fair-play card totals and official FIFA ranking are not yet in the dataset, so the app uses its pre-tournament rating only as a final deterministic fallback when every available football criterion is still tied.</p>
   </section>;
 }

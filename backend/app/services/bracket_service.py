@@ -21,6 +21,12 @@ ROUND_SOURCES = {
     "semifinal": [(97, 98), (99, 100)],
     "final": [(101, 102)],
 }
+ROUND_LABELS = {
+    "round_of_16": "Round of 16",
+    "quarterfinal": "Quarterfinal",
+    "semifinal": "Semifinal",
+    "final": "Final",
+}
 
 
 @dataclass(frozen=True)
@@ -70,6 +76,25 @@ def _project_match(
         "away_advance_probability": away_advance,
         "projected_winner": _team_payload(winner, forecast_by_team),
     }
+
+
+def _order_rounds_by_path(rounds: list[dict]) -> None:
+    """Keep visual bracket rows aligned to the source matches feeding them."""
+    for index in range(len(rounds) - 2, -1, -1):
+        round_payload = rounds[index]
+        next_round = rounds[index + 1]
+        source_order = [
+            source
+            for match in next_round["matches"]
+            for source in (match.get("home_source"), match.get("away_source"))
+            if source is not None
+        ]
+        if not source_order:
+            continue
+        position_by_number = {match_number: position for position, match_number in enumerate(source_order)}
+        round_payload["matches"].sort(
+            key=lambda match: position_by_number.get(match["match_number"], len(position_by_number))
+        )
 
 
 def bracket_projection(db: Session) -> dict:
@@ -130,7 +155,9 @@ def bracket_projection(db: Session) -> dict:
             match["away_source"] = away_source
             matches_by_number[match_number] = match
             matches.append(match)
-        rounds.append({"key": round_name, "label": round_name.replace("_", " ").title(), "matches": matches})
+        rounds.append({"key": round_name, "label": ROUND_LABELS[round_name], "matches": matches})
+
+    _order_rounds_by_path(rounds)
 
     favorite = max(forecast.probabilities, key=lambda row: row.champion_probability)
     finalists = sorted(forecast.probabilities, key=lambda row: row.final_probability, reverse=True)[:4]

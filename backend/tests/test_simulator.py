@@ -2,6 +2,7 @@ import csv
 
 import pytest
 
+from app.services import simulator
 from app.paths import data_path
 from app.services.simulator import _third_place_assignments, run_tournament_simulation
 
@@ -57,6 +58,22 @@ def test_monte_carlo_probabilities_are_valid_and_stage_totals_make_sense():
     assert sum(row.semifinal_probability for row in rows) == pytest.approx(4)
     assert sum(row.final_probability for row in rows) == pytest.approx(2)
     assert sum(row.champion_probability for row in rows) == pytest.approx(1)
+
+
+def test_simulation_only_projects_unfinished_group_matches(monkeypatch):
+    teams, matches = load_seed_data()
+    incomplete = sum(1 for match in matches if not match["completed"])
+    calls = 0
+
+    def fake_score(_home_rating, _away_rating, _rng):
+        nonlocal calls
+        calls += 1
+        return 1, 0
+
+    monkeypatch.setattr(simulator, "simulate_score", fake_score)
+    run_tournament_simulation(teams, matches, simulations=3, seed=7)
+
+    assert calls == incomplete * 3
 
 
 def test_fifa_annex_c_contains_every_third_place_combination():

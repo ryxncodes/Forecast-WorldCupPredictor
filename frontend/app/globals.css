@@ -287,7 +287,7 @@ table { border-collapse: collapse; width: 100%; }
 .subsection-heading { min-height: 68px; }
 .subsection-heading p { color: var(--muted); font-size: 11px; line-height: 1.5; margin: 6px 0 0; max-width: 560px; }
 .third-ranking-table { border: 1px solid var(--line-dark); overflow-x: auto; }
-.third-ranking-table table { font-size: 11px; min-width: 550px; }
+.third-ranking-table table { font-size: 11px; min-width: 590px; }
 .third-ranking-table th, .third-ranking-table td { border-bottom: 1px solid var(--line); height: 38px; padding: 0 11px; text-align: right; }
 .third-ranking-table th:nth-child(2), .third-ranking-table td:nth-child(2) { text-align: left; }
 .third-ranking-table tbody tr.qualifying { background: color-mix(in srgb, var(--green-soft) 82%, var(--surface)); }
@@ -315,7 +315,7 @@ table { border-collapse: collapse; width: 100%; }
 .bracket-status strong { color: var(--green); font-family: var(--font-serif); font-size: 22px; line-height: 1.05; }
 .bracket-status small { color: var(--text-soft); font-size: 10px; line-height: 1.4; }
 .bracket-layout { align-items: start; display: grid; gap: 34px; grid-template-columns: minmax(0, 1fr) 250px; }
-.bracket-board { --bracket-card-h: 104px; --bracket-gap: 12px; display: grid; gap: 30px; grid-template-columns: repeat(5, minmax(172px, 1fr)); overflow-x: auto; padding: 16px 0 12px; }
+.bracket-board { --bracket-card-h: 96px; --bracket-gap: 12px; display: grid; gap: 30px; grid-template-columns: repeat(5, minmax(172px, 1fr)); overflow-x: auto; padding: 16px 0 12px; }
 .bracket-round { min-width: 172px; padding: 0; --connector-span: calc(var(--bracket-card-h) + var(--bracket-gap)); }
 .bracket-round:last-child { border-right: 0; }
 .bracket-round h2 { color: var(--ink); font-family: var(--font-sans); font-size: 12px; font-weight: 900; letter-spacing: .02em; margin-bottom: 18px; min-height: 20px; text-align: center; text-transform: uppercase; }
@@ -332,8 +332,8 @@ table { border-collapse: collapse; width: 100%; }
 .bracket-match.connector-pair::before { background: var(--line-dark); content: ""; height: var(--connector-span); position: absolute; right: -31px; top: 50%; width: 1px; }
 .bracket-round:last-child .bracket-match::after { display: none; }
 .bracket-round:last-child .bracket-match { align-content: center; }
-.bracket-match-meta { display: flex; justify-content: space-between; margin-bottom: 7px; }
-.bracket-team { align-items: center; border-top: 1px solid var(--line); display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr) 45px; min-height: 30px; padding: 3px 0; }
+.bracket-match-meta { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.bracket-team { align-items: center; border-top: 1px solid var(--line); display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr) 45px; min-height: 29px; padding: 2px 0; }
 .bracket-team span { min-width: 0; }
 .bracket-team strong, .bracket-team small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bracket-team strong { font-size: 11px; line-height: 1.25; }
