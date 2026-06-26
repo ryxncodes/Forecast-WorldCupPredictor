@@ -11,7 +11,12 @@ export const metadata: Metadata = {
   description: "A World Cup machine learning predictor that updates team ratings, match forecasts, and tournament odds as results come in.",
   applicationName: "The Forecast",
   icons: {
-    icon: "/icon.svg",
+    icon: [
+      { url: "/favicon-32.png?v=3", sizes: "32x32", type: "image/png" },
+      { url: "/icon-192.png?v=3", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png?v=3", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png?v=3", sizes: "180x180", type: "image/png" }],
   },
   openGraph: {
     title: "The Forecast | World Cup Match Predictor",
@@ -20,7 +25,7 @@ export const metadata: Metadata = {
     siteName: "The Forecast",
     images: [
       {
-        url: "/opengraph-image",
+        url: "/og-worldcup.png?v=3",
         width: 1200,
         height: 630,
         alt: "The Forecast World Cup 2026 predictor",
@@ -33,7 +38,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "The Forecast | World Cup Match Predictor",
     description: "Live World Cup forecasts powered by an adaptive model and tournament simulations.",
-    images: ["/opengraph-image"],
+    images: ["/og-worldcup.png?v=3"],
   },
 };
 
