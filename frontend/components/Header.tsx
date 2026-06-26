@@ -3,9 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { MenuIcon, XIcon } from "./Icons";
 type Props = { simulations?: number };
 
 type ThemeChoice = "light" | "dark";
+
+const navLinks = [
+  { href: "/", label: "Forecast" },
+  { href: "/bracket", label: "Bracket" },
+  { href: "/third-place", label: "Third place" },
+  { href: "/history", label: "History" },
+  { href: "/matches", label: "Matches" },
+  { href: "/accuracy", label: "Accuracy" },
+];
 
 function getSystemTheme(): ThemeChoice {
   if (typeof window === "undefined") return "light";
@@ -42,21 +52,40 @@ function ThemeToggle() {
 
 export function Header({ simulations }: Props) {
   const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    document.body.classList.toggle("mobile-nav-open", menuOpen);
+    return () => document.body.classList.remove("mobile-nav-open");
+  }, [menuOpen]);
+
+  const renderNavItems = () => navLinks.map((link) => (
+    <Link className={pathname === link.href ? "active" : ""} href={link.href} key={link.href} onClick={() => setMenuOpen(false)}>
+      {link.label}
+    </Link>
+  ));
+
   return (
     <header className="site-header">
       <Link className="brand" href="/">The Forecast</Link>
-      <nav aria-label="Dashboard sections">
-        <Link className={pathname === "/" ? "active" : ""} href="/">Forecast</Link>
-        <Link className={pathname === "/bracket" ? "active" : ""} href="/bracket">Bracket</Link>
-        <Link className={pathname === "/third-place" ? "active" : ""} href="/third-place">Third place</Link>
-        <Link className={pathname === "/history" ? "active" : ""} href="/history">History</Link>
-        <Link className={pathname === "/matches" ? "active" : ""} href="/matches">Matches</Link>
-        <Link className={pathname === "/accuracy" ? "active" : ""} href="/accuracy">Accuracy</Link>
-      </nav>
+      <nav className="desktop-nav" aria-label="Dashboard sections">{renderNavItems()}</nav>
       <div className="header-actions">
         {simulations ? <span className="simulation-count"><span className="auto-status-dot" />Automatically updated · {simulations.toLocaleString()} simulations</span> : null}
         <ThemeToggle />
+        <button className="mobile-menu-toggle" type="button" aria-label="Open navigation menu" aria-expanded={menuOpen} aria-controls="mobile-navigation" onClick={() => setMenuOpen(true)}><MenuIcon /></button>
       </div>
+      {menuOpen ? <button className="mobile-drawer-backdrop" type="button" aria-label="Dismiss navigation menu" onClick={() => setMenuOpen(false)} /> : null}
+      <aside className={menuOpen ? "mobile-drawer open" : "mobile-drawer"} id="mobile-navigation" aria-hidden={!menuOpen}>
+        <div className="mobile-drawer-heading">
+          <span>Navigation</span>
+          <button type="button" aria-label="Close navigation menu" onClick={() => setMenuOpen(false)}><XIcon /></button>
+        </div>
+        <nav aria-label="Mobile dashboard sections">{renderNavItems()}</nav>
+      </aside>
     </header>
   );
 }
