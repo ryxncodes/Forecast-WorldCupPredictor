@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Match, MatchTimelineEvent } from "@/lib/types";
 import { CheckIcon, ChevronIcon, ClockIcon } from "./Icons";
 
@@ -38,8 +38,16 @@ function eventLabel(event: MatchTimelineEvent) {
 }
 
 export function MatchList({ matches }: Props) {
-  const [filter, setFilter] = useState<"all" | "live" | "upcoming" | "completed">("all");
+  const hasLiveMatches = matches.some((match) => match.status === "in");
+  const [filter, setFilter] = useState<"all" | "live" | "upcoming" | "completed">(() => hasLiveMatches ? "live" : "all");
+  const [autoFilter, setAutoFilter] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!autoFilter) return;
+    setFilter(hasLiveMatches ? "live" : "all");
+  }, [autoFilter, hasLiveMatches]);
+
   const visibleMatches = useMemo(() => {
     const filtered = matches.filter((match) => (
       filter === "all"
@@ -53,7 +61,7 @@ export function MatchList({ matches }: Props) {
 
   return (
     <section id="matches" className="matches-section" aria-labelledby="matches-heading">
-      <div className="matches-title"><h2 id="matches-heading">Group-stage matches</h2><div className="match-filters" aria-label="Filter matches">{(["all", "live", "upcoming", "completed"] as const).map((value) => <button className={filter === value ? "active" : ""} type="button" key={value} onClick={() => setFilter(value)}>{value[0].toUpperCase() + value.slice(1)}</button>)}</div></div>
+      <div className="matches-title"><h2 id="matches-heading">Group-stage matches</h2><div className="match-filters" aria-label="Filter matches">{(["all", "live", "upcoming", "completed"] as const).map((value) => <button className={filter === value ? "active" : ""} type="button" key={value} onClick={() => { setAutoFilter(false); setFilter(value); }}>{value[0].toUpperCase() + value.slice(1)}</button>)}</div></div>
       <div className="match-header" aria-hidden="true"><span>Date</span><span>Group</span><span>Home</span><span>Score</span><span>Away</span><span>Model edge</span><span>Venue / status</span></div>
       <div className="match-list">
         {visibleMatches.map((match) => {

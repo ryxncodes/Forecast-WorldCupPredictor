@@ -10,10 +10,11 @@ from sqlalchemy import text
 from .api import routes_accuracy, routes_forecast, routes_matches, routes_standings, routes_teams
 from .models import database
 from .paths import PROJECT_DIR, data_path
-from .settings import ADMIN_SYNC_ENABLED, CORS_ORIGINS, valid_sync_token
+from .settings import ADMIN_SYNC_ENABLED, CORS_ORIGINS, valid_cron_authorization, valid_sync_token
 from .seed_data import seed_database
 from .services.accuracy_service import backfill_completed_match_predictions, lock_upcoming_match_predictions
 from .services.forecast_service import latest_forecast, recalculate_ratings, run_and_store_forecast
+from .services.live_sync import refresh_live_data
 
 
 @asynccontextmanager
@@ -93,3 +94,12 @@ def admin_sync(x_sync_token: str | None = Header(default=None)):
     refresh_files()
     changed = sync_database()
     return {"status": "ok", "forecast_changed": changed}
+
+
+@app.get("/admin/cron/sync", include_in_schema=False)
+def cron_sync(authorization: str | None = Header(default=None)):
+    if not valid_cron_authorization(authorization):
+        raise HTTPException(status_code=401, detail="Invalid cron authorization")
+    with database.SessionLocal() as db:
+        summary = refresh_live_data(db)
+    return {"status": "ok", **summary}

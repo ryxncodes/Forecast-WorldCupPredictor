@@ -47,6 +47,29 @@ const outcomeLabels = [
   ["away", "Away wins"],
 ] as const;
 
+function DistributionBars({ report }: { report: AccuracyReport }) {
+  const maxCount = Math.max(
+    1,
+    ...outcomeLabels.flatMap(([key]) => [
+      report.predicted_result_distribution[key],
+      report.actual_result_distribution[key],
+    ]),
+  );
+  return (
+    <div className="accuracy-distribution-bars">
+      {outcomeLabels.map(([key, label]) => {
+        const predicted = report.predicted_result_distribution[key];
+        const actual = report.actual_result_distribution[key];
+        return <div className="accuracy-distribution-bar-row" key={key}>
+          <strong>{label}</strong>
+          <div><span>Predicted</span><em><i style={{ width: `${(predicted / maxCount) * 100}%` }} /></em><b>{predicted}</b></div>
+          <div><span>Actual</span><em><i style={{ width: `${(actual / maxCount) * 100}%` }} /></em><b>{actual}</b></div>
+        </div>;
+      })}
+    </div>
+  );
+}
+
 export function AccuracyPageClient({ initialReport, initialError = null }: Props) {
   const [report, setReport] = useState(initialReport);
   const [error, setError] = useState<string | null>(initialError);
@@ -97,9 +120,28 @@ export function AccuracyPageClient({ initialReport, initialError = null }: Props
             <div className="accuracy-summary-grid">
               <section aria-labelledby="distribution-heading">
                 <h2 id="distribution-heading">Result distribution</h2>
-                <div className="accuracy-distribution">
+                <DistributionBars report={report} />
+                <div className="accuracy-distribution compact">
                   <div><span>Outcome</span><span>Predicted</span><span>Actual</span></div>
                   {outcomeLabels.map(([key, label]) => <div key={key}><strong>{label}</strong><span>{report.predicted_result_distribution[key]}</span><span>{report.actual_result_distribution[key]}</span></div>)}
+                </div>
+              </section>
+              <section aria-labelledby="quality-heading">
+                <h2 id="quality-heading">Scoring quality</h2>
+                <div className="accuracy-insight-grid">
+                  <div><span>Mean goal error</span><strong>{number(report.average_goal_error)}</strong><small>Total home plus away xG error per match</small></div>
+                  <div><span>Exact-score misses</span><strong>{report.scored_matches - report.exact_scores}</strong><small>{report.exact_scores}/{report.scored_matches} exact scorelines hit</small></div>
+                  <div><span>Unscored finals</span><strong>{report.unscored_completed_matches}</strong><small>Completed matches missing a prediction snapshot</small></div>
+                </div>
+              </section>
+              <section aria-labelledby="latest-heading">
+                <h2 id="latest-heading">Latest scored</h2>
+                <div className="accuracy-latest-list">
+                  {report.matches.slice(0, 4).map((match) => <button type="button" key={match.match_id} onClick={() => setExpandedId(match.match_id)}>
+                    <span>#{match.match_number} · {formatKickoff(match.kickoff)}</span>
+                    <strong>{match.home_team} {match.home_score}-{match.away_score} {match.away_team}</strong>
+                    <small>{match.picked_correct ? "Right" : "Wrong"} · picked {match.predicted_outcome_label}</small>
+                  </button>)}
                 </div>
               </section>
             </div>

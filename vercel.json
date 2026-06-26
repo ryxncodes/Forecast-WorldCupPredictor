@@ -26,5 +26,19 @@
         "**/*.pyc"
       ]
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/backend/admin/cron/sync",
+      "schedule": "*/10 16-23 * * *"
+    },
+    {
+      "path": "/backend/admin/cron/sync",
+      "schedule": "*/10 0-5 * * *"
+    },
+    {
+      "path": "/backend/admin/cron/sync",
+      "schedule": "0,10,20,30 6 * * *"
+    }
+  ]
 }
