@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 import hashlib
 import json
+from time import monotonic
 from urllib.request import Request, urlopen
 
 from sqlalchemy import select
@@ -16,6 +17,8 @@ ESPN_SCOREBOARD_URL = (
     "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard"
     "?dates=20260611-20260719&limit=200"
 )
+LIVE_SCOREBOARD_TTL_SECONDS = 60
+_LIVE_SCOREBOARD_CACHE: tuple[float, dict[frozenset[str], dict]] | None = None
 
 CANONICAL_NAMES = {
     "Bosnia-Herzegovina": "Bosnia and Herzegovina",
@@ -106,6 +109,26 @@ def _espn_group_events(payload: dict) -> dict[frozenset[str], dict]:
     return events
 
 
+def live_match_overrides(ttl_seconds: int = LIVE_SCOREBOARD_TTL_SECONDS) -> dict[frozenset[str], dict]:
+    global _LIVE_SCOREBOARD_CACHE
+    now = monotonic()
+    if _LIVE_SCOREBOARD_CACHE is not None:
+        fetched_at, events = _LIVE_SCOREBOARD_CACHE
+        if now - fetched_at < ttl_seconds:
+            return events
+    events = _espn_group_events(fetch_espn_scoreboard())
+    _LIVE_SCOREBOARD_CACHE = (now, events)
+    return events
+
+
+def score_for_event(match: Match, event: dict) -> tuple[int | None, int | None]:
+    if event["state"] not in {"in", "post"}:
+        return None, None
+    if (event["home"], event["away"]) == (match.home_team.name, match.away_team.name):
+        return event["home_score"], event["away_score"]
+    return event["away_score"], event["home_score"]
+
+
 def result_fingerprint(db: Session) -> str:
     completed = db.scalars(select(Match).where(Match.completed.is_(True)).order_by(Match.id))
     return hashlib.sha256("|".join(
@@ -146,16 +169,10 @@ def refresh_live_matches(db: Session, payload: dict | None = None) -> dict:
             live += 1
         if state == "post":
             completed += 1
-        score = None
-        if state in {"in", "post"}:
-            score = (
-                (event["home_score"], event["away_score"])
-                if (event["home"], event["away"]) == (match.home_team.name, match.away_team.name)
-                else (event["away_score"], event["home_score"])
-            )
+        home_score, away_score = score_for_event(match, event)
         next_values = {
-            "home_score": score[0] if score else None,
-            "away_score": score[1] if score else None,
+            "home_score": home_score,
+            "away_score": away_score,
             "completed": state == "post",
             "status": state,
             "status_detail": event["detail"],

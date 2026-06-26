@@ -1,9 +1,11 @@
 from fastapi.testclient import TestClient
 
+from app.api import routes_matches
 from app.main import app
 
 
-def test_dashboard_endpoints_are_public_read_only():
+def test_dashboard_endpoints_are_public_read_only(monkeypatch):
+    monkeypatch.setattr(routes_matches, "live_match_overrides", lambda: {})
     with TestClient(app) as client:
         teams = client.get("/teams")
         matches = client.get("/matches")
@@ -52,3 +54,27 @@ def test_dashboard_endpoints_are_public_read_only():
         sync = client.post("/admin/sync", headers={"X-Sync-Token": "wrong"})
         assert sync.status_code == 404
         assert "round_of_32_probability" in forecast.json()["probabilities"][0]
+
+
+def test_matches_endpoint_overlays_live_espn_state(monkeypatch):
+    monkeypatch.setattr(routes_matches, "live_match_overrides", lambda: {
+        frozenset(("Mexico", "South Africa")): {
+            "home": "Mexico",
+            "away": "South Africa",
+            "home_score": 3,
+            "away_score": 2,
+            "state": "in",
+            "detail": "90'+2'",
+            "details": {"events": [{"type": "Goal", "minute": "90'+2'"}], "goals": []},
+        }
+    })
+    with TestClient(app) as client:
+        match = client.get("/matches").json()[0]
+
+    assert match["match_number"] == 1
+    assert match["home_score"] == 3
+    assert match["away_score"] == 2
+    assert match["completed"] is False
+    assert match["status"] == "in"
+    assert match["status_detail"] == "90'+2'"
+    assert match["details"]["events"][0]["minute"] == "90'+2'"
