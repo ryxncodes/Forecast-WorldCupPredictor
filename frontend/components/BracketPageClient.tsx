@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { Header } from "@/components/Header";
 import { loadBracket } from "@/lib/api";
+import { formatDateTimeET } from "@/lib/format";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import type { BracketMatch, BracketProjection, BracketTeam } from "@/lib/types";
 
@@ -15,15 +16,6 @@ function formatPercent(value: number) {
   const percent = value * 100;
   if (percent < 1) return `${percent.toFixed(1)}%`;
   return `${Math.round(percent)}%`;
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(/[zZ]|[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`));
 }
 
 const knockoutDates: Record<number, string> = {
@@ -95,7 +87,7 @@ export function BracketPageClient({ initialBracket, initialError = null }: Props
             <div className="bracket-status">
               <span>Predicted champion</span>
               <strong>{bracket.favorite.team}</strong>
-              <small>{formatPercent(bracket.favorite.champion_probability)} cup chance · updated {formatDate(bracket.forecast.created_at)}</small>
+              <small>{formatPercent(bracket.favorite.champion_probability)} cup chance · updated {formatDateTimeET(bracket.forecast.created_at)}</small>
             </div>
           </div>
           <div className="bracket-layout">

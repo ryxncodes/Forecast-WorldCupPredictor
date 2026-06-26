@@ -1,26 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { formatDateTimeET, formatDayKeyET, formatDayLabelET, formatLongDateTimeET, parseApiDate } from "@/lib/format";
 import type { Match, MatchTimelineEvent } from "@/lib/types";
 import { CheckIcon, ChevronIcon, ClockIcon } from "./Icons";
 
 type Props = { matches: Match[] };
-
-function formatKickoff(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function formatLongKickoff(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
 
 function formatPercent(value: number) {
   const percent = value * 100;
@@ -31,8 +16,8 @@ function formatPercent(value: number) {
 
 function sortMatchesForFilter(matches: Match[], filter: "all" | "live" | "upcoming" | "completed") {
   return [...matches].sort((a, b) => {
-    const kickoffA = new Date(a.kickoff).getTime();
-    const kickoffB = new Date(b.kickoff).getTime();
+    const kickoffA = parseApiDate(a.kickoff).getTime();
+    const kickoffB = parseApiDate(b.kickoff).getTime();
     if (filter === "completed") return kickoffB - kickoffA || b.match_number - a.match_number;
     if (filter === "all") {
       const rank = { in: 0, pre: 1, post: 2 } as Record<Match["status"], number>;
@@ -83,9 +68,8 @@ export function MatchList({ matches }: Props) {
     const groups: { key: string; label: string; matches: Match[] }[] = [];
     const groupByKey = new Map<string, { key: string; label: string; matches: Match[] }>();
     for (const match of visibleMatches) {
-      const date = new Date(match.kickoff);
-      const key = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
-      const label = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric" }).format(date);
+      const key = formatDayKeyET(match.kickoff);
+      const label = formatDayLabelET(match.kickoff);
       const existing = groupByKey.get(key);
       if (existing) existing.matches.push(match);
       else {
@@ -129,11 +113,11 @@ export function MatchList({ matches }: Props) {
           const modelLeader = [...predictionRows].sort((a, b) => b.value - a.value)[0];
           return <div className={expanded ? "match-row-wrap expanded" : "match-row-wrap"} key={match.id}>
             <button className="match-row" type="button" onClick={() => toggleExpanded(match.id)} aria-expanded={expanded}>
-              <span className="match-time"><small>#{match.match_number}</small>{formatKickoff(match.kickoff)}</span><span className="match-group">{match.group}</span><span className="match-teams"><strong>{match.home_team}</strong><small>vs</small><strong>{match.away_team}</strong></span><span className={live ? "score live" : "score"}>{match.status !== "pre" ? `${match.home_score} – ${match.away_score}` : "–"}</span><span className="match-edge">{canShowPrediction ? `${modelLeader.label} ${formatPercent(modelLeader.value)}` : "Final"}</span><span className={match.completed ? "status completed" : live ? "status live" : "status"}>{match.completed ? <CheckIcon /> : <ClockIcon />}<span><strong>{live ? "Live" : match.completed ? "Completed" : "Scheduled"}</strong><small>{live ? match.status_detail : match.venue}</small></span><ChevronIcon className={expanded ? "chevron open" : "chevron"} /></span>
+              <span className="match-time"><small>#{match.match_number}</small>{formatDateTimeET(match.kickoff)}</span><span className="match-group">{match.group}</span><span className="match-teams"><strong>{match.home_team}</strong><small>vs</small><strong>{match.away_team}</strong></span><span className={live ? "score live" : "score"}>{match.status !== "pre" ? `${match.home_score} – ${match.away_score}` : "–"}</span><span className="match-edge">{canShowPrediction ? `${modelLeader.label} ${formatPercent(modelLeader.value)}` : "Final"}</span><span className={match.completed ? "status completed" : live ? "status live" : "status"}>{match.completed ? <CheckIcon /> : <ClockIcon />}<span><strong>{live ? "Live" : match.completed ? "Completed" : "Scheduled"}</strong><small>{live ? match.status_detail : match.venue}</small></span><ChevronIcon className={expanded ? "chevron open" : "chevron"} /></span>
             </button>
             {expanded ? <div className="match-details-panel">
               <div className="match-detail-grid">
-                <div><span>Kickoff</span><strong>{formatLongKickoff(match.kickoff)}</strong></div>
+                <div><span>Kickoff</span><strong>{formatLongDateTimeET(match.kickoff)}</strong></div>
                 <div><span>Venue</span><strong>{details.venue_full_name || match.venue}</strong><small>{[details.venue_city, details.venue_country].filter(Boolean).join(", ")}</small></div>
                 <div><span>Attendance</span><strong>{details.attendance ? details.attendance.toLocaleString() : "TBD"}</strong></div>
                 <div><span>Broadcast</span><strong>{broadcasts.length ? broadcasts.join(", ") : "TBD"}</strong></div>

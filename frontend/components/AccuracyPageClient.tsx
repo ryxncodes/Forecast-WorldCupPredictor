@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useState } from "react";
 import type { AccuracyMatch, AccuracyReport } from "@/lib/types";
 import { loadAccuracy } from "@/lib/api";
+import { formatDateTimeET } from "@/lib/format";
 import { Header } from "./Header";
 import { RefreshCwIcon } from "./Icons";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
@@ -22,15 +23,6 @@ function scoredPercent(value: number, scored: number) {
 
 function number(value: number, digits = 2) {
   return value.toFixed(digits);
-}
-
-function formatKickoff(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
 }
 
 function predictionRows(match: AccuracyMatch) {
@@ -138,7 +130,7 @@ export function AccuracyPageClient({ initialReport, initialError = null }: Props
                 <h2 id="latest-heading">Latest scored</h2>
                 <div className="accuracy-latest-list">
                   {report.matches.slice(0, 4).map((match) => <button type="button" key={match.match_id} onClick={() => setExpandedId(match.match_id)}>
-                    <span>#{match.match_number} · {formatKickoff(match.kickoff)}</span>
+                    <span>#{match.match_number} · {formatDateTimeET(match.kickoff)}</span>
                     <strong>{match.home_team} {match.home_score}-{match.away_score} {match.away_team}</strong>
                     <small>{match.picked_correct ? "Right" : "Wrong"} · picked {match.predicted_outcome_label}</small>
                   </button>)}
@@ -152,7 +144,7 @@ export function AccuracyPageClient({ initialReport, initialError = null }: Props
                   const expanded = expandedId === match.match_id;
                   return <Fragment key={match.match_id}>
                     <tr className={expanded ? "accuracy-row expanded" : "accuracy-row"}>
-                      <td><button className="accuracy-match-toggle" type="button" onClick={() => setExpandedId(expanded ? null : match.match_id)} aria-expanded={expanded}><strong>#{match.match_number} · Group {match.group}</strong><span>{formatKickoff(match.kickoff)}</span><small>{match.home_team} vs {match.away_team}</small></button></td>
+                      <td><button className="accuracy-match-toggle" type="button" onClick={() => setExpandedId(expanded ? null : match.match_id)} aria-expanded={expanded}><strong>#{match.match_number} · Group {match.group}</strong><span>{formatDateTimeET(match.kickoff)}</span><small>{match.home_team} vs {match.away_team}</small></button></td>
                       <td><span className={match.picked_correct ? "accuracy-chip correct" : "accuracy-chip wrong"}>{match.picked_correct ? "Right" : "Wrong"}</span><strong>{match.predicted_outcome_label}</strong><small>{percent(Math.max(match.home_win_probability, match.draw_probability, match.away_win_probability))} · {match.prediction_source}</small></td>
                       <td><strong>{match.home_score}-{match.away_score}</strong><small>{match.actual_outcome_label}</small></td>
                       <td><strong>{match.predicted_home_score}-{match.predicted_away_score}</strong><small>{percent(match.predicted_score_probability, 1)} scoreline chance</small></td>
