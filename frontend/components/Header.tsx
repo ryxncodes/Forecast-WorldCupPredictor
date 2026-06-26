@@ -71,12 +71,12 @@ export function Header({ simulations }: Props) {
 
   return (
     <header className="site-header">
+      <button className="mobile-menu-toggle" type="button" aria-label="Open navigation menu" aria-expanded={menuOpen} aria-controls="mobile-navigation" onClick={() => setMenuOpen(true)}><MenuIcon /></button>
       <Link className="brand" href="/">The Forecast</Link>
       <nav className="desktop-nav" aria-label="Dashboard sections">{renderNavItems()}</nav>
       <div className="header-actions">
         {simulations ? <span className="simulation-count"><span className="auto-status-dot" />Automatically updated · {simulations.toLocaleString()} simulations</span> : null}
         <ThemeToggle />
-        <button className="mobile-menu-toggle" type="button" aria-label="Open navigation menu" aria-expanded={menuOpen} aria-controls="mobile-navigation" onClick={() => setMenuOpen(true)}><MenuIcon /></button>
       </div>
       {menuOpen ? <button className="mobile-drawer-backdrop" type="button" aria-label="Dismiss navigation menu" onClick={() => setMenuOpen(false)} /> : null}
       <aside className={menuOpen ? "mobile-drawer open" : "mobile-drawer"} id="mobile-navigation" aria-hidden={!menuOpen}>
