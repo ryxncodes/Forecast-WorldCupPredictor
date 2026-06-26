@@ -111,7 +111,7 @@ button { color: inherit; }
 .mobile-menu-toggle { align-items: center; background: var(--surface-elevated); border: 1px solid var(--line-dark); border-radius: 999px; cursor: pointer; display: none; height: 34px; justify-content: center; width: 38px; }
 .mobile-menu-toggle:hover { border-color: var(--green); color: var(--green); }
 .mobile-drawer-backdrop { background: rgba(0, 0, 0, .38); border: 0; bottom: 0; cursor: pointer; display: none; left: 0; padding: 0; position: fixed; right: 0; top: 0; z-index: 30; }
-.mobile-drawer { background: var(--surface); border-left: 1px solid var(--line-dark); bottom: 0; box-shadow: -18px 0 40px rgba(0, 0, 0, .24); display: none; max-width: min(318px, calc(100vw - 52px)); padding: 18px; position: fixed; right: 0; top: 0; transform: translateX(100%); width: 82vw; z-index: 31; }
+.mobile-drawer { background: var(--surface); border-right: 1px solid var(--line-dark); bottom: 0; box-shadow: 18px 0 40px rgba(0, 0, 0, .24); display: none; left: 0; max-width: min(318px, calc(100vw - 52px)); padding: 18px; position: fixed; top: 0; transform: translateX(-100%); width: 82vw; z-index: 31; }
 .mobile-drawer.open { transform: translateX(0); }
 .mobile-drawer-heading { align-items: center; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; padding-bottom: 14px; }
 .mobile-drawer-heading span { color: var(--muted); font-size: 10px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
