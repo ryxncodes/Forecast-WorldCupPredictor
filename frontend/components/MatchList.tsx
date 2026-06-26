@@ -29,6 +29,21 @@ function formatPercent(value: number) {
   return `${Math.round(percent)}%`;
 }
 
+function sortMatchesForFilter(matches: Match[], filter: "all" | "live" | "upcoming" | "completed") {
+  return [...matches].sort((a, b) => {
+    const kickoffA = new Date(a.kickoff).getTime();
+    const kickoffB = new Date(b.kickoff).getTime();
+    if (filter === "completed") return kickoffB - kickoffA || b.match_number - a.match_number;
+    if (filter === "all") {
+      const rank = { in: 0, pre: 1, post: 2 } as Record<Match["status"], number>;
+      const rankDelta = rank[a.status] - rank[b.status];
+      if (rankDelta !== 0) return rankDelta;
+      if (a.status === "post") return kickoffB - kickoffA || b.match_number - a.match_number;
+    }
+    return kickoffA - kickoffB || a.match_number - b.match_number;
+  });
+}
+
 function eventLabel(event: MatchTimelineEvent) {
   const tags = [
     event.penalty ? "pen." : "",
@@ -61,21 +76,22 @@ export function MatchList({ matches }: Props) {
       || (filter === "live" && match.status === "in")
       || (filter === "upcoming" && match.status === "pre")
     ));
-    if (filter !== "completed") return filtered;
-    return [...filtered].sort((a, b) => new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime());
+    return sortMatchesForFilter(filtered, filter);
   }, [filter, matches]);
 
   const groupedMatches = useMemo(() => {
     const groups: { key: string; label: string; matches: Match[] }[] = [];
+    const groupByKey = new Map<string, { key: string; label: string; matches: Match[] }>();
     for (const match of visibleMatches) {
       const date = new Date(match.kickoff);
       const key = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
       const label = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric" }).format(date);
-      const latest = groups[groups.length - 1];
-      if (latest?.key === key) {
-        latest.matches.push(match);
-      } else {
-        groups.push({ key, label, matches: [match] });
+      const existing = groupByKey.get(key);
+      if (existing) existing.matches.push(match);
+      else {
+        const group = { key, label, matches: [match] };
+        groupByKey.set(key, group);
+        groups.push(group);
       }
     }
     return groups;
@@ -94,9 +110,9 @@ export function MatchList({ matches }: Props) {
     <section id="matches" className="matches-section" aria-labelledby="matches-heading">
       <div className="matches-title"><h2 id="matches-heading">Group-stage matches</h2><div className="match-filters" aria-label="Filter matches">{(["all", "live", "upcoming", "completed"] as const).map((value) => <button className={filter === value ? "active" : ""} type="button" key={value} onClick={() => { setAutoFilter(false); setFilter(value); }}>{value[0].toUpperCase() + value.slice(1)}</button>)}</div></div>
       <div className="match-list">
+        {!groupedMatches.length ? <p className="match-empty-state">No {filter === "all" ? "" : filter} matches to show right now.</p> : null}
         {groupedMatches.map((group) => <div className="match-day-group" key={group.key}>
           <div className="match-day-heading"><span>{group.label}</span><small>{group.matches.length} match{group.matches.length === 1 ? "" : "es"}</small></div>
-          <div className="match-header" aria-hidden="true"><span>Time</span><span>Group</span><span>Match</span><span>Score</span><span>Model edge</span><span>Venue / status</span></div>
           {group.matches.map((match) => {
           const expanded = expandedIds.has(match.id);
           const live = match.status === "in";
