@@ -114,12 +114,13 @@ def bracket_projection(db: Session) -> dict:
         r32.append(match)
     rounds.append({"key": "round_of_32", "label": "Round of 32", "matches": r32})
 
-    next_number = 89
     for round_name, sources in ROUND_SOURCES.items():
         matches = []
-        for home_source, away_source in sources:
+        base_number = {"round_of_16": 89, "quarterfinal": 97, "semifinal": 101, "final": 104}[round_name]
+        for index, (home_source, away_source) in enumerate(sources):
+            match_number = base_number + index
             match = _project_match(
-                next_number,
+                match_number,
                 round_name,
                 team_by_id[matches_by_number[home_source]["projected_winner"]["team_id"]],
                 team_by_id[matches_by_number[away_source]["projected_winner"]["team_id"]],
@@ -127,9 +128,8 @@ def bracket_projection(db: Session) -> dict:
             )
             match["home_source"] = home_source
             match["away_source"] = away_source
-            matches_by_number[next_number] = match
+            matches_by_number[match_number] = match
             matches.append(match)
-            next_number += 1
         rounds.append({"key": round_name, "label": round_name.replace("_", " ").title(), "matches": matches})
 
     favorite = max(forecast.probabilities, key=lambda row: row.champion_probability)

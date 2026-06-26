@@ -41,12 +41,18 @@ export function MatchList({ matches }: Props) {
   const hasLiveMatches = matches.some((match) => match.status === "in");
   const [filter, setFilter] = useState<"all" | "live" | "upcoming" | "completed">(() => hasLiveMatches ? "live" : "all");
   const [autoFilter, setAutoFilter] = useState(true);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(() => new Set(matches.filter((match) => match.status === "in").map((match) => match.id)));
 
   useEffect(() => {
     if (!autoFilter) return;
     setFilter(hasLiveMatches ? "live" : "all");
   }, [autoFilter, hasLiveMatches]);
+
+  useEffect(() => {
+    const liveIds = matches.filter((match) => match.status === "in").map((match) => match.id);
+    if (!liveIds.length) return;
+    setExpandedIds((current) => new Set([...current, ...liveIds]));
+  }, [matches]);
 
   const visibleMatches = useMemo(() => {
     const filtered = matches.filter((match) => (
@@ -59,13 +65,40 @@ export function MatchList({ matches }: Props) {
     return [...filtered].sort((a, b) => new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime());
   }, [filter, matches]);
 
+  const groupedMatches = useMemo(() => {
+    const groups: { key: string; label: string; matches: Match[] }[] = [];
+    for (const match of visibleMatches) {
+      const date = new Date(match.kickoff);
+      const key = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+      const label = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric" }).format(date);
+      const latest = groups[groups.length - 1];
+      if (latest?.key === key) {
+        latest.matches.push(match);
+      } else {
+        groups.push({ key, label, matches: [match] });
+      }
+    }
+    return groups;
+  }, [visibleMatches]);
+
+  function toggleExpanded(matchId: number) {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(matchId)) next.delete(matchId);
+      else next.add(matchId);
+      return next;
+    });
+  }
+
   return (
     <section id="matches" className="matches-section" aria-labelledby="matches-heading">
       <div className="matches-title"><h2 id="matches-heading">Group-stage matches</h2><div className="match-filters" aria-label="Filter matches">{(["all", "live", "upcoming", "completed"] as const).map((value) => <button className={filter === value ? "active" : ""} type="button" key={value} onClick={() => { setAutoFilter(false); setFilter(value); }}>{value[0].toUpperCase() + value.slice(1)}</button>)}</div></div>
-      <div className="match-header" aria-hidden="true"><span>Date</span><span>Group</span><span>Home</span><span>Score</span><span>Away</span><span>Model edge</span><span>Venue / status</span></div>
       <div className="match-list">
-        {visibleMatches.map((match) => {
-          const expanded = expandedId === match.id;
+        {groupedMatches.map((group) => <div className="match-day-group" key={group.key}>
+          <div className="match-day-heading"><span>{group.label}</span><small>{group.matches.length} match{group.matches.length === 1 ? "" : "es"}</small></div>
+          <div className="match-header" aria-hidden="true"><span>Time</span><span>Group</span><span>Match</span><span>Score</span><span>Model edge</span><span>Venue / status</span></div>
+          {group.matches.map((match) => {
+          const expanded = expandedIds.has(match.id);
           const live = match.status === "in";
           const canShowPrediction = match.status !== "post";
           const details = match.details ?? {};
@@ -79,8 +112,8 @@ export function MatchList({ matches }: Props) {
           ];
           const modelLeader = [...predictionRows].sort((a, b) => b.value - a.value)[0];
           return <div className={expanded ? "match-row-wrap expanded" : "match-row-wrap"} key={match.id}>
-            <button className="match-row" type="button" onClick={() => setExpandedId(expanded ? null : match.id)} aria-expanded={expanded}>
-              <span><small>#{match.match_number}</small>{formatKickoff(match.kickoff)}</span><span>{match.group}</span><strong>{match.home_team}</strong><span className={live ? "score live" : "score"}>{match.status !== "pre" ? `${match.home_score} – ${match.away_score}` : "–"}</span><strong>{match.away_team}</strong><span className="match-edge">{canShowPrediction ? `${modelLeader.label} ${formatPercent(modelLeader.value)}` : "Final"}</span><span className={match.completed ? "status completed" : live ? "status live" : "status"}>{match.completed ? <CheckIcon /> : <ClockIcon />}<span><strong>{live ? "Live" : match.completed ? "Completed" : "Scheduled"}</strong><small>{live ? match.status_detail : match.venue}</small></span><ChevronIcon className={expanded ? "chevron open" : "chevron"} /></span>
+            <button className="match-row" type="button" onClick={() => toggleExpanded(match.id)} aria-expanded={expanded}>
+              <span className="match-time"><small>#{match.match_number}</small>{formatKickoff(match.kickoff)}</span><span className="match-group">{match.group}</span><span className="match-teams"><strong>{match.home_team}</strong><small>vs</small><strong>{match.away_team}</strong></span><span className={live ? "score live" : "score"}>{match.status !== "pre" ? `${match.home_score} – ${match.away_score}` : "–"}</span><span className="match-edge">{canShowPrediction ? `${modelLeader.label} ${formatPercent(modelLeader.value)}` : "Final"}</span><span className={match.completed ? "status completed" : live ? "status live" : "status"}>{match.completed ? <CheckIcon /> : <ClockIcon />}<span><strong>{live ? "Live" : match.completed ? "Completed" : "Scheduled"}</strong><small>{live ? match.status_detail : match.venue}</small></span><ChevronIcon className={expanded ? "chevron open" : "chevron"} /></span>
             </button>
             {expanded ? <div className="match-details-panel">
               <div className="match-detail-grid">
@@ -105,6 +138,7 @@ export function MatchList({ matches }: Props) {
             </div> : null}
           </div>;
         })}
+        </div>)}
       </div>
       <p className="matches-note">Scores refresh automatically. Live scores are displayed immediately; standings, ratings, and tournament forecasts update only after the result is final.</p>
     </section>

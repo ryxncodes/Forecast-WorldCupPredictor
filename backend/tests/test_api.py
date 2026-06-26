@@ -25,6 +25,7 @@ def test_dashboard_endpoints_are_public_read_only(monkeypatch):
         assert bracket.status_code == 200
         assert len(bracket.json()["rounds"]) == 5
         assert len(bracket.json()["rounds"][0]["matches"]) == 16
+        assert bracket.json()["rounds"][-1]["matches"][0]["match_number"] == 104
 
         history = client.get("/forecast/history")
         assert history.status_code == 200 and len(history.json()) >= 1

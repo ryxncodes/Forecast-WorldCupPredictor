@@ -26,6 +26,25 @@ function formatDate(value: string) {
   }).format(new Date(/[zZ]|[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`));
 }
 
+const knockoutDates: Record<number, string> = {
+  73: "Jun 28 · 3:00 PM ET", 74: "Jun 28 · 4:30 PM ET",
+  75: "Jun 29 · 9:00 PM ET", 76: "Jun 29 · 1:00 PM ET",
+  77: "Jun 30 · 5:00 PM ET", 78: "Jun 30 · 1:00 PM ET",
+  79: "Jun 30 · 9:00 PM ET", 80: "Jul 1 · 12:00 PM ET",
+  81: "Jul 1 · 8:00 PM ET", 82: "Jul 2 · 4:00 PM ET",
+  83: "Jul 3 · 7:00 PM ET", 84: "Jul 3 · 3:00 PM ET",
+  85: "Jul 3 · 11:00 PM ET", 86: "Jul 4 · 6:00 PM ET",
+  87: "Jul 4 · 9:30 PM ET", 88: "Jul 4 · 2:00 PM ET",
+  89: "Jul 4 · 5:00 PM ET", 90: "Jul 5 · 1:00 PM ET",
+  91: "Jul 5 · 4:00 PM ET", 92: "Jul 5 · 8:00 PM ET",
+  93: "Jul 6 · 3:00 PM ET", 94: "Jul 6 · 8:00 PM ET",
+  95: "Jul 7 · 12:00 PM ET", 96: "Jul 7 · 4:00 PM ET",
+  97: "Jul 9 · 4:00 PM ET", 98: "Jul 10 · 3:00 PM ET",
+  99: "Jul 11 · 5:00 PM ET", 100: "Jul 11 · 9:00 PM ET",
+  101: "Jul 14 · 3:00 PM ET", 102: "Jul 15 · 3:00 PM ET",
+  104: "Jul 19 · 3:00 PM ET",
+};
+
 function TeamLine({ team, probability, winner }: { team: BracketTeam; probability: number; winner: boolean }) {
   return (
     <div className={winner ? "bracket-team winner" : "bracket-team"}>
@@ -35,11 +54,11 @@ function TeamLine({ team, probability, winner }: { team: BracketTeam; probabilit
   );
 }
 
-function MatchCard({ match }: { match: BracketMatch }) {
+function MatchCard({ match, connectPair }: { match: BracketMatch; connectPair: boolean }) {
   const homeWins = match.projected_winner.team_id === match.home.team_id;
   return (
-    <article className="bracket-match">
-      <div className="bracket-match-meta"><span>#{match.match_number}</span><span>xG {match.home_expected_goals.toFixed(1)}-{match.away_expected_goals.toFixed(1)}</span></div>
+    <article className={connectPair ? "bracket-match connector-pair" : "bracket-match"}>
+      <div className="bracket-match-meta"><span>#{match.match_number}</span><span>{knockoutDates[match.match_number]}</span></div>
       <TeamLine team={match.home} probability={match.home_advance_probability} winner={homeWins} />
       <TeamLine team={match.away} probability={match.away_advance_probability} winner={!homeWins} />
     </article>
@@ -84,16 +103,17 @@ export function BracketPageClient({ initialBracket, initialError = null }: Props
               {bracket.rounds.map((round) => (
                 <div className="bracket-round" key={round.key}>
                   <h2>{round.label}</h2>
-                  <div className="bracket-round-matches">{round.matches.map((match) => <MatchCard match={match} key={match.match_number} />)}</div>
+                  <div className="bracket-round-matches">{round.matches.map((match, index) => <MatchCard connectPair={round.key !== "final" && index % 2 === 0} match={match} key={match.match_number} />)}</div>
                 </div>
               ))}
             </div>
             <aside className="bracket-insights" aria-label="Bracket insights">
               <div><span>Cup favorite</span><strong>{bracket.favorite.team}</strong><small>{formatPercent(bracket.favorite.champion_probability)} champion probability</small></div>
               <div><span>Most likely finalists</span>{bracket.finalists.map((team) => <p key={team.team_id}><strong>{team.team}</strong><small>{formatPercent(team.final_probability)}</small></p>)}</div>
-              <div><span>Model note</span><small>Knockout percentages remove draws and compare each side's modeled win probability. Later rounds advance the higher-probability team to keep the bracket readable.</small></div>
+              <div><span>Model note</span><small>Dates and kickoff times use FIFA's published match schedule and are shown in Eastern Time. Probabilities show the model edge to advance from each matchup.</small></div>
             </aside>
           </div>
+          <p className="bracket-footnote">Dates and kickoff times shown in ET from FIFA's published match schedule. Probabilities show the model edge to advance from that matchup.</p>
         </section> : null}
       </main>
     </>
