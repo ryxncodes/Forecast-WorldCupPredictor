@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     siteName: "The Forecast",
     images: [
       {
-        url: "/og-worldcup.png?v=3",
+        url: "/opengraph-image?v=4",
         width: 1200,
         height: 630,
         alt: "The Forecast World Cup 2026 predictor",
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "The Forecast | World Cup Match Predictor",
     description: "Live World Cup forecasts powered by an adaptive model and tournament simulations.",
-    images: ["/og-worldcup.png?v=3"],
+    images: ["/opengraph-image?v=4"],
   },
 };
 
