@@ -5,7 +5,8 @@ from app.main import app
 
 
 def test_dashboard_endpoints_are_public_read_only(monkeypatch):
-    monkeypatch.setattr(routes_matches, "live_match_overrides", lambda: {})
+    monkeypatch.setattr(routes_matches, "fetch_espn_scoreboard", lambda: {"events": []})
+    monkeypatch.setattr(routes_matches, "group_match_overrides", lambda payload: {})
     with TestClient(app) as client:
         teams = client.get("/teams")
         matches = client.get("/matches")
@@ -14,9 +15,13 @@ def test_dashboard_endpoints_are_public_read_only(monkeypatch):
         bracket = client.get("/bracket")
 
         assert teams.status_code == 200 and len(teams.json()) == 48
-        assert matches.status_code == 200 and len(matches.json()) == 72
+        assert matches.status_code == 200 and len(matches.json()) == 104
         assert "details" in matches.json()[0]
         assert "prediction" in matches.json()[0]
+        assert matches.json()[72]["match_number"] == 73
+        assert matches.json()[72]["stage"] == "round_of_32"
+        assert matches.json()[-2]["stage"] == "third_place"
+        assert matches.json()[-1]["match_number"] == 104
         assert standings.status_code == 200
         assert set(standings.json()["groups"]) == set("ABCDEFGHIJKL")
         assert len(standings.json()["best_third"]) == 12
@@ -68,7 +73,8 @@ def test_dashboard_endpoints_are_public_read_only(monkeypatch):
 
 
 def test_matches_endpoint_overlays_live_espn_state(monkeypatch):
-    monkeypatch.setattr(routes_matches, "live_match_overrides", lambda: {
+    monkeypatch.setattr(routes_matches, "fetch_espn_scoreboard", lambda: {"events": []})
+    monkeypatch.setattr(routes_matches, "group_match_overrides", lambda payload: {
         frozenset(("Mexico", "South Africa")): {
             "home": "Mexico",
             "away": "South Africa",

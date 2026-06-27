@@ -19,12 +19,6 @@ function sortMatchesForFilter(matches: Match[], filter: "all" | "live" | "upcomi
     const kickoffA = parseApiDate(a.kickoff).getTime();
     const kickoffB = parseApiDate(b.kickoff).getTime();
     if (filter === "completed") return kickoffB - kickoffA || b.match_number - a.match_number;
-    if (filter === "all") {
-      const rank = { in: 0, pre: 1, post: 2 } as Record<Match["status"], number>;
-      const rankDelta = rank[a.status] - rank[b.status];
-      if (rankDelta !== 0) return rankDelta;
-      if (a.status === "post") return kickoffB - kickoffA || b.match_number - a.match_number;
-    }
     return kickoffA - kickoffB || a.match_number - b.match_number;
   });
 }
@@ -92,7 +86,7 @@ export function MatchList({ matches }: Props) {
 
   return (
     <section id="matches" className="matches-section" aria-labelledby="matches-heading">
-      <div className="matches-title"><h2 id="matches-heading">Group-stage matches</h2><div className="match-filters" aria-label="Filter matches">{(["all", "live", "upcoming", "completed"] as const).map((value) => <button className={filter === value ? "active" : ""} type="button" key={value} onClick={() => { setAutoFilter(false); setFilter(value); }}>{value[0].toUpperCase() + value.slice(1)}</button>)}</div></div>
+      <div className="matches-title"><h2 id="matches-heading">Tournament matches</h2><div className="match-filters" aria-label="Filter matches">{(["all", "live", "upcoming", "completed"] as const).map((value) => <button className={filter === value ? "active" : ""} type="button" key={value} onClick={() => { setAutoFilter(false); setFilter(value); }}>{value[0].toUpperCase() + value.slice(1)}</button>)}</div></div>
       <div className="match-list">
         {!groupedMatches.length ? <p className="match-empty-state">No {filter === "all" ? "" : filter} matches to show right now.</p> : null}
         {groupedMatches.map((group) => <div className="match-day-group" key={group.key}>

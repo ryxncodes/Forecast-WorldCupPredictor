@@ -109,6 +109,10 @@ def _espn_group_events(payload: dict) -> dict[frozenset[str], dict]:
     return events
 
 
+def group_match_overrides(payload: dict) -> dict[frozenset[str], dict]:
+    return _espn_group_events(payload)
+
+
 def live_match_overrides(ttl_seconds: int = LIVE_SCOREBOARD_TTL_SECONDS) -> dict[frozenset[str], dict]:
     global _LIVE_SCOREBOARD_CACHE
     now = monotonic()
