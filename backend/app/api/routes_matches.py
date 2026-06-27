@@ -1,4 +1,5 @@
 import json
+from time import monotonic
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
@@ -7,12 +8,14 @@ from sqlalchemy.orm import Session, joinedload
 from ..models import Match, Team
 from ..models.database import get_db
 from ..services.bracket_service import bracket_projection
-from ..services.live_sync import CANONICAL_NAMES, fetch_espn_scoreboard, group_match_overrides, score_for_event
+from ..services.live_sync import CANONICAL_NAMES, cached_espn_scoreboard, group_match_overrides, result_fingerprint, score_for_event
 from ..services.match_model import match_probabilities
 from ..settings import MATCH_PROBABILITY_MODEL_MODE
 
 
 router = APIRouter(prefix="/matches", tags=["matches"])
+KNOCKOUT_MATCH_CACHE_TTL_SECONDS = 60
+_KNOCKOUT_MATCH_CACHE: tuple[float, str, list[dict]] | None = None
 
 ROUND_LABELS = {
     "round_of_32": "Round of 32",
@@ -83,6 +86,7 @@ def serialize(match: Match, live_event: dict | None = None) -> dict:
         "home_score": home_score, "away_score": away_score,
         "completed": completed, "source": match.source,
         "status": status, "status_detail": status_detail,
+        "matchup_status": "confirmed",
         "details": details,
         "prediction": {
             "home_win_probability": home_win,
@@ -156,7 +160,23 @@ def _event_score(event: dict | None) -> tuple[int | None, int | None, str, str, 
     )
 
 
+def _knockout_cache_key(db: Session, espn_events: dict[str, dict]) -> str:
+    event_state = "|".join(
+        f"{event_id}:{event.get('shortName', '')}:{event.get('status', {}).get('type', {}).get('state', '')}"
+        for event_id, event in sorted(espn_events.items())
+    )
+    return f"{result_fingerprint(db)}:{event_state}"
+
+
 def _projected_knockout_matches(db: Session, espn_events: dict[str, dict]) -> list[dict]:
+    global _KNOCKOUT_MATCH_CACHE
+    now = monotonic()
+    cache_key = _knockout_cache_key(db, espn_events)
+    if _KNOCKOUT_MATCH_CACHE is not None:
+        cached_at, cached_key, cached_matches = _KNOCKOUT_MATCH_CACHE
+        if cached_key == cache_key and now - cached_at < KNOCKOUT_MATCH_CACHE_TTL_SECONDS:
+            return cached_matches
+
     projection = bracket_projection(db)
     projected = {
         match["match_number"]: match
@@ -191,6 +211,7 @@ def _projected_knockout_matches(db: Session, espn_events: dict[str, dict]) -> li
             home = teams[event_home_name]
         if event_away_name in teams:
             away = teams[event_away_name]
+        matchup_confirmed = event_home_name in teams and event_away_name in teams
         home_rating = teams.get(home["team"], home).get("rating", 1500)
         away_rating = teams.get(away["team"], away).get("rating", 1500)
         home_xg, away_xg, home_win, draw, away_win = match_probabilities(
@@ -216,6 +237,7 @@ def _projected_knockout_matches(db: Session, espn_events: dict[str, dict]) -> li
             "source": "FIFA knockout schedule; ESPN public scoreboard confirmation; model projection",
             "status": status,
             "status_detail": status_detail if event_home_name and event_away_name else "Projected matchup",
+            "matchup_status": "confirmed" if matchup_confirmed else "projected",
             "details": {
                 "venue_full_name": venue_full_name,
                 "venue_city": venue_city,
@@ -234,6 +256,7 @@ def _projected_knockout_matches(db: Session, espn_events: dict[str, dict]) -> li
                 "model_mode": MATCH_PROBABILITY_MODEL_MODE,
             },
         })
+    _KNOCKOUT_MATCH_CACHE = (now, cache_key, matches)
     return matches
 
 
@@ -244,7 +267,7 @@ def get_matches(db: Session = Depends(get_db)):
     )
     payload = None
     try:
-        payload = fetch_espn_scoreboard()
+        payload = cached_espn_scoreboard()
         overrides = group_match_overrides(payload)
     except Exception:
         overrides = {}

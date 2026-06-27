@@ -19,6 +19,7 @@ ESPN_SCOREBOARD_URL = (
 )
 LIVE_SCOREBOARD_TTL_SECONDS = 60
 _LIVE_SCOREBOARD_CACHE: tuple[float, dict[frozenset[str], dict]] | None = None
+_LIVE_SCOREBOARD_PAYLOAD_CACHE: tuple[float, dict] | None = None
 
 CANONICAL_NAMES = {
     "Bosnia-Herzegovina": "Bosnia and Herzegovina",
@@ -42,6 +43,18 @@ def fetch_espn_scoreboard() -> dict:
     request = Request(ESPN_SCOREBOARD_URL, headers={"User-Agent": "WorldCupPredictions live sync"})
     with urlopen(request, timeout=30) as response:
         return json.loads(response.read())
+
+
+def cached_espn_scoreboard(ttl_seconds: int = LIVE_SCOREBOARD_TTL_SECONDS) -> dict:
+    global _LIVE_SCOREBOARD_PAYLOAD_CACHE
+    now = monotonic()
+    if _LIVE_SCOREBOARD_PAYLOAD_CACHE is not None:
+        fetched_at, payload = _LIVE_SCOREBOARD_PAYLOAD_CACHE
+        if now - fetched_at < ttl_seconds:
+            return payload
+    payload = fetch_espn_scoreboard()
+    _LIVE_SCOREBOARD_PAYLOAD_CACHE = (now, payload)
+    return payload
 
 
 def normalize_match_details(competition: dict, team_by_espn_id: dict[str, str]) -> dict:
@@ -120,7 +133,7 @@ def live_match_overrides(ttl_seconds: int = LIVE_SCOREBOARD_TTL_SECONDS) -> dict
         fetched_at, events = _LIVE_SCOREBOARD_CACHE
         if now - fetched_at < ttl_seconds:
             return events
-    events = _espn_group_events(fetch_espn_scoreboard())
+    events = _espn_group_events(cached_espn_scoreboard(ttl_seconds))
     _LIVE_SCOREBOARD_CACHE = (now, events)
     return events
 

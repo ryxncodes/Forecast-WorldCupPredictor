@@ -5,7 +5,7 @@ from app.main import app
 
 
 def test_dashboard_endpoints_are_public_read_only(monkeypatch):
-    monkeypatch.setattr(routes_matches, "fetch_espn_scoreboard", lambda: {"events": []})
+    monkeypatch.setattr(routes_matches, "cached_espn_scoreboard", lambda: {"events": []})
     monkeypatch.setattr(routes_matches, "group_match_overrides", lambda payload: {})
     with TestClient(app) as client:
         teams = client.get("/teams")
@@ -20,6 +20,7 @@ def test_dashboard_endpoints_are_public_read_only(monkeypatch):
         assert "prediction" in matches.json()[0]
         assert matches.json()[72]["match_number"] == 73
         assert matches.json()[72]["stage"] == "round_of_32"
+        assert matches.json()[72]["matchup_status"] == "projected"
         assert matches.json()[-2]["stage"] == "third_place"
         assert matches.json()[-1]["match_number"] == 104
         assert standings.status_code == 200
@@ -73,7 +74,7 @@ def test_dashboard_endpoints_are_public_read_only(monkeypatch):
 
 
 def test_matches_endpoint_overlays_live_espn_state(monkeypatch):
-    monkeypatch.setattr(routes_matches, "fetch_espn_scoreboard", lambda: {"events": []})
+    monkeypatch.setattr(routes_matches, "cached_espn_scoreboard", lambda: {"events": []})
     monkeypatch.setattr(routes_matches, "group_match_overrides", lambda payload: {
         frozenset(("Mexico", "South Africa")): {
             "home": "Mexico",

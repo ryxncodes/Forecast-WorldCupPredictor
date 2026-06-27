@@ -33,14 +33,16 @@ function eventLabel(event: MatchTimelineEvent) {
 
 export function MatchList({ matches }: Props) {
   const hasLiveMatches = matches.some((match) => match.status === "in");
-  const [filter, setFilter] = useState<"all" | "live" | "upcoming" | "completed">(() => hasLiveMatches ? "live" : "all");
+  const hasUpcomingMatches = matches.some((match) => match.status === "pre");
+  const defaultFilter = hasLiveMatches ? "live" : hasUpcomingMatches ? "upcoming" : "all";
+  const [filter, setFilter] = useState<"all" | "live" | "upcoming" | "completed">(() => defaultFilter);
   const [autoFilter, setAutoFilter] = useState(true);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(() => new Set(matches.filter((match) => match.status === "in").map((match) => match.id)));
 
   useEffect(() => {
     if (!autoFilter) return;
-    setFilter(hasLiveMatches ? "live" : "all");
-  }, [autoFilter, hasLiveMatches]);
+    setFilter(defaultFilter);
+  }, [autoFilter, defaultFilter]);
 
   useEffect(() => {
     const liveIds = matches.filter((match) => match.status === "in").map((match) => match.id);
@@ -95,6 +97,7 @@ export function MatchList({ matches }: Props) {
           const expanded = expandedIds.has(match.id);
           const live = match.status === "in";
           const canShowPrediction = match.status !== "post";
+          const projectedMatchup = match.matchup_status === "projected";
           const details = match.details ?? {};
           const goals = details.goals ?? [];
           const timeline = details.events ?? [];
@@ -107,7 +110,7 @@ export function MatchList({ matches }: Props) {
           const modelLeader = [...predictionRows].sort((a, b) => b.value - a.value)[0];
           return <div className={expanded ? "match-row-wrap expanded" : "match-row-wrap"} key={match.id}>
             <button className="match-row" type="button" onClick={() => toggleExpanded(match.id)} aria-expanded={expanded}>
-              <span className="match-time"><small>#{match.match_number}</small>{formatDateTimeET(match.kickoff)}</span><span className="match-group">{match.group}</span><span className="match-teams"><strong>{match.home_team}</strong><small>vs</small><strong>{match.away_team}</strong></span><span className={live ? "score live" : "score"}>{match.status !== "pre" ? `${match.home_score} – ${match.away_score}` : "–"}</span><span className="match-edge">{canShowPrediction ? `${modelLeader.label} ${formatPercent(modelLeader.value)}` : "Final"}</span><span className={match.completed ? "status completed" : live ? "status live" : "status"}>{match.completed ? <CheckIcon /> : <ClockIcon />}<span><strong>{live ? "Live" : match.completed ? "Completed" : "Scheduled"}</strong><small>{live ? match.status_detail : match.venue}</small></span><ChevronIcon className={expanded ? "chevron open" : "chevron"} /></span>
+              <span className="match-time"><small>#{match.match_number}</small>{formatDateTimeET(match.kickoff)}</span><span className="match-group">{match.group}</span><span className="match-teams"><span className="team-name"><strong>{match.home_team}</strong>{projectedMatchup ? <em>Projected</em> : null}</span><small>vs</small><span className="team-name"><strong>{match.away_team}</strong>{projectedMatchup ? <em>Projected</em> : null}</span></span><span className={live ? "score live" : "score"}>{match.status !== "pre" ? `${match.home_score} – ${match.away_score}` : "–"}</span><span className="match-edge">{canShowPrediction ? `${modelLeader.label} ${formatPercent(modelLeader.value)}` : "Final"}</span><span className={match.completed ? "status completed" : live ? "status live" : "status"}>{match.completed ? <CheckIcon /> : <ClockIcon />}<span><strong>{live ? "Live" : match.completed ? "Completed" : "Scheduled"}</strong><small>{live ? match.status_detail : match.venue}</small></span><ChevronIcon className={expanded ? "chevron open" : "chevron"} /></span>
             </button>
             {expanded ? <div className="match-details-panel">
               <div className="match-detail-grid">

@@ -388,7 +388,7 @@ table { border-collapse: collapse; width: 100%; }
 .match-day-heading { align-items: baseline; display: flex; gap: 12px; justify-content: space-between; min-height: 34px; }
 .match-day-heading span { color: var(--green); font-family: var(--font-serif); font-size: 20px; font-weight: 800; }
 .match-day-heading small { color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
-.match-header, .match-row { align-items: center; display: grid; grid-template-columns: 120px 52px minmax(210px, 1fr) 82px 150px 220px; }
+.match-header, .match-row { align-items: center; display: grid; gap: 0 16px; grid-template-columns: 120px minmax(82px, .45fr) minmax(240px, 1fr) 70px minmax(132px, .55fr) minmax(180px, .75fr); }
 .match-header { border-bottom: 1px solid var(--line); color: var(--text-soft); font-size: 10px; font-weight: 700; min-height: 31px; padding: 0 8px; }
 .match-row-wrap { border-bottom: 1px solid var(--line); }
 .match-row-wrap.expanded { border-left: 3px solid var(--green); background: var(--green-soft); }
@@ -397,8 +397,11 @@ table { border-collapse: collapse; width: 100%; }
 .match-row:disabled { color: inherit; cursor: default; }
 .match-row strong { font-size: 11px; }
 .match-row small { color: var(--muted); display: block; font-size: 9px; font-weight: 500; margin-bottom: 2px; }
+.match-group { color: var(--text); font-weight: 800; line-height: 1.15; min-width: 0; overflow-wrap: anywhere; }
 .match-teams { align-items: center; display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr); }
-.match-teams strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-name { align-items: center; display: flex; gap: 6px; min-width: 0; }
+.team-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-name em { border: 1px solid var(--line-dark); color: var(--muted); flex: 0 0 auto; font-size: 8px; font-style: normal; font-weight: 900; letter-spacing: 0; line-height: 1; padding: 3px 5px; text-transform: uppercase; }
 .match-teams small { color: var(--muted); font-size: 9px; font-weight: 900; margin: 0; text-align: center; text-transform: uppercase; }
 .score { font-variant-numeric: tabular-nums; font-weight: 700; text-align: center; }
 .score.live { color: var(--coral); }
@@ -460,6 +463,15 @@ table { border-collapse: collapse; width: 100%; }
   .accuracy-scorecards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .accuracy-summary-grid { grid-template-columns: 1fr; }
   .subsection-heading { min-height: 0; margin-bottom: 12px; }
+  .match-header { display: none; }
+  .match-row { gap: 8px 12px; grid-template-columns: 120px minmax(90px, auto) minmax(0, 1fr) 62px; min-height: 76px; padding: 10px 8px; }
+  .match-row .match-time { grid-column: 1; grid-row: 1 / span 2; }
+  .match-row .match-group { grid-column: 2; grid-row: 1 / span 2; }
+  .match-row .match-teams { grid-column: 3; grid-row: 1; }
+  .match-row .match-edge { grid-column: 3; grid-row: 2; }
+  .match-row .score { grid-column: 4; grid-row: 1; min-width: 52px; }
+  .match-row .status { grid-column: 4; grid-row: 2; }
+  .match-row .status svg, .match-row .status small, .match-row .chevron { display: none; }
 }
 
 @media (max-width: 700px) {
@@ -512,11 +524,11 @@ table { border-collapse: collapse; width: 100%; }
   .match-row { gap: 8px 12px; grid-template-columns: minmax(0, 1fr) auto; min-height: 116px; padding: 12px 8px; }
   .match-group { display: none; }
   .match-row > strong, .match-row > span { min-width: 0; }
-  .match-time { grid-column: 1; grid-row: 1; }
+  .match-row .match-time { grid-column: 1; grid-row: 1; }
   .match-row .score { grid-column: 2; grid-row: 1 / span 2; min-width: 52px; }
-  .match-teams { grid-column: 1; grid-row: 2; gap: 4px; grid-template-columns: 1fr; }
-  .match-teams small { display: none; }
-  .match-teams strong { font-size: 16px; line-height: 1.25; white-space: normal; }
+  .match-row .match-teams { grid-column: 1; grid-row: 2; gap: 4px; grid-template-columns: 1fr; }
+  .match-row .match-teams small { display: none; }
+  .match-row .match-teams strong { font-size: 16px; line-height: 1.25; white-space: normal; }
   .match-row .match-edge { grid-column: 1 / -1; grid-row: 3; }
   .match-row .status { grid-column: 1 / -1; grid-row: 4; }
   .match-detail-grid, .match-prediction-card { grid-template-columns: 1fr; }

@@ -130,6 +130,7 @@ export type Match = {
   completed: boolean;
   status: "pre" | "in" | "post";
   status_detail: string;
+  matchup_status?: "confirmed" | "projected";
   source: string;
   details: MatchDetails;
   prediction: MatchPrediction;
