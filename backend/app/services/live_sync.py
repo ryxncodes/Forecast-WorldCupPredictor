@@ -1,8 +1,10 @@
 from datetime import UTC, datetime
 import hashlib
 import json
+import os
 from time import monotonic
-from urllib.request import Request, urlopen
+
+import httpx
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
@@ -18,6 +20,7 @@ ESPN_SCOREBOARD_URL = (
     "?dates=20260611-20260719&limit=200"
 )
 LIVE_SCOREBOARD_TTL_SECONDS = 60
+ESPN_SCOREBOARD_TIMEOUT_SECONDS = float(os.getenv("ESPN_SCOREBOARD_TIMEOUT_SECONDS", "3"))
 _LIVE_SCOREBOARD_CACHE: tuple[float, dict[frozenset[str], dict]] | None = None
 _LIVE_SCOREBOARD_PAYLOAD_CACHE: tuple[float, dict] | None = None
 
@@ -40,9 +43,13 @@ def canonical(name: str) -> str:
 
 
 def fetch_espn_scoreboard() -> dict:
-    request = Request(ESPN_SCOREBOARD_URL, headers={"User-Agent": "WorldCupPredictions live sync"})
-    with urlopen(request, timeout=30) as response:
-        return json.loads(response.read())
+    response = httpx.get(
+        ESPN_SCOREBOARD_URL,
+        headers={"User-Agent": "WorldCupPredictions live sync"},
+        timeout=httpx.Timeout(ESPN_SCOREBOARD_TIMEOUT_SECONDS, connect=1.5),
+    )
+    response.raise_for_status()
+    return response.json()
 
 
 def cached_espn_scoreboard(ttl_seconds: int = LIVE_SCOREBOARD_TTL_SECONDS) -> dict:
@@ -52,7 +59,12 @@ def cached_espn_scoreboard(ttl_seconds: int = LIVE_SCOREBOARD_TTL_SECONDS) -> di
         fetched_at, payload = _LIVE_SCOREBOARD_PAYLOAD_CACHE
         if now - fetched_at < ttl_seconds:
             return payload
-    payload = fetch_espn_scoreboard()
+    try:
+        payload = fetch_espn_scoreboard()
+    except Exception:
+        if _LIVE_SCOREBOARD_PAYLOAD_CACHE is not None:
+            return _LIVE_SCOREBOARD_PAYLOAD_CACHE[1]
+        raise
     _LIVE_SCOREBOARD_PAYLOAD_CACHE = (now, payload)
     return payload
 

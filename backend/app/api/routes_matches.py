@@ -139,6 +139,12 @@ def _placeholder_match(match_number: int, label: str) -> dict:
     }
 
 
+def _slot_placeholder(match_number: int, slot: str | None, side: str) -> dict:
+    label = f"{slot} slot" if slot else "TBD"
+    offset = 0 if side == "home" else 1000
+    return _placeholder_match(match_number + offset, label)
+
+
 def _event_score(event: dict | None) -> tuple[int | None, int | None, str, str, bool]:
     if event is None:
         return None, None, "pre", "Projected matchup", False
@@ -168,6 +174,22 @@ def _knockout_cache_key(db: Session, espn_events: dict[str, dict]) -> str:
     return f"{result_fingerprint(db)}:{event_state}"
 
 
+def _confirmed_knockout_team_ids(espn_events: dict[str, dict], teams: dict[str, dict]) -> dict[int, set[int]]:
+    confirmed_by_match = {}
+    for match_number, schedule in KNOCKOUT_SCHEDULE.items():
+        event = espn_events.get(schedule[-1])
+        if event is None:
+            continue
+        event_home_name, _ = _event_team(event, "home")
+        event_away_name, _ = _event_team(event, "away")
+        if event_home_name in teams and event_away_name in teams:
+            confirmed_by_match[match_number] = {
+                teams[event_home_name]["team_id"],
+                teams[event_away_name]["team_id"],
+            }
+    return confirmed_by_match
+
+
 def _projected_knockout_matches(db: Session, espn_events: dict[str, dict]) -> list[dict]:
     global _KNOCKOUT_MATCH_CACHE
     now = monotonic()
@@ -184,6 +206,12 @@ def _projected_knockout_matches(db: Session, espn_events: dict[str, dict]) -> li
         for match in round_payload.get("matches", [])
     }
     teams = _team_lookup(db)
+    confirmed_by_match = _confirmed_knockout_team_ids(espn_events, teams)
+    confirmed_team_ids = {
+        team_id
+        for ids in confirmed_by_match.values()
+        for team_id in ids
+    }
 
     if 101 in projected and 102 in projected:
         semifinal_losers = []
@@ -212,6 +240,11 @@ def _projected_knockout_matches(db: Session, espn_events: dict[str, dict]) -> li
         if event_away_name in teams:
             away = teams[event_away_name]
         matchup_confirmed = event_home_name in teams and event_away_name in teams
+        if not matchup_confirmed and stage == "round_of_32":
+            if home["team_id"] in confirmed_team_ids:
+                home = _slot_placeholder(match_number, projected_match.get("home_slot"), "home")
+            if away["team_id"] in confirmed_team_ids:
+                away = _slot_placeholder(match_number, projected_match.get("away_slot"), "away")
         home_rating = teams.get(home["team"], home).get("rating", 1500)
         away_rating = teams.get(away["team"], away).get("rating", 1500)
         home_xg, away_xg, home_win, draw, away_win = match_probabilities(

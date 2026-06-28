@@ -22,9 +22,11 @@ export function MatchesPageClient({ initialMatches, initialError = null }: Props
       setError(null);
     }
     catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not load matches");
+      if (!matches.length) {
+        setError(caught instanceof Error ? caught.message : "Could not load matches");
+      }
     }
-  }, []);
+  }, [matches.length]);
 
   useAutoRefresh(refresh, 30_000);
 
