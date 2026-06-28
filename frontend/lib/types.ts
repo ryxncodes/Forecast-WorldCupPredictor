@@ -165,6 +165,7 @@ export type MatchPrediction = {
   home_expected_goals: number;
   away_expected_goals: number;
   model_mode: string;
+  market?: "result" | "advance";
 };
 
 export type AccuracyMatch = {

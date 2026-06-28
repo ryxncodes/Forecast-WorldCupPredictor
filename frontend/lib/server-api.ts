@@ -20,7 +20,7 @@ export const loadCachedForecastHistory = unstable_cache(loadForecastHistory, ["f
   tags: ["forecast-history"],
 });
 
-export const loadCachedMatches = unstable_cache(loadMatches, ["matches"], {
+export const loadCachedMatches = unstable_cache(loadMatches, ["matches-v2"], {
   revalidate: 15,
   tags: ["matches"],
 });

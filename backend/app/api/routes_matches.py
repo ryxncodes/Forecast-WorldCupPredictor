@@ -26,6 +26,12 @@ ROUND_LABELS = {
     "final": "Final",
 }
 
+KNOCKOUT_BROADCASTS = {
+    82: ["FS1", "Telemundo"],
+    85: ["FS1", "Telemundo"],
+}
+DEFAULT_KNOCKOUT_BROADCASTS = ["FOX", "Telemundo"]
+
 KNOCKOUT_SCHEDULE = {
     73: ("round_of_32", "2026-06-28T19:00:00Z", "Los Angeles (Inglewood)", "SoFi Stadium", "Inglewood, California", "USA", "760486"),
     74: ("round_of_32", "2026-06-29T17:00:00Z", "Houston", "NRG Stadium", "Houston, Texas", "USA", "760487"),
@@ -145,6 +151,20 @@ def _slot_placeholder(match_number: int, slot: str | None, side: str) -> dict:
     return _placeholder_match(match_number + offset, label)
 
 
+def _knockout_broadcasts(match_number: int) -> list[str]:
+    return KNOCKOUT_BROADCASTS.get(match_number, DEFAULT_KNOCKOUT_BROADCASTS)
+
+
+def _advance_probabilities(home_win: float, draw: float, away_win: float) -> tuple[float, float]:
+    non_draw_total = home_win + away_win
+    if non_draw_total <= 0:
+        return 0.5, 0.5
+    home_share = home_win / non_draw_total
+    home_advance = home_win + draw * home_share
+    away_advance = away_win + draw * (1 - home_share)
+    return home_advance, away_advance
+
+
 def _event_score(event: dict | None) -> tuple[int | None, int | None, str, str, bool]:
     if event is None:
         return None, None, "pre", "Projected matchup", False
@@ -252,6 +272,7 @@ def _projected_knockout_matches(db: Session, espn_events: dict[str, dict]) -> li
             away_rating,
             MATCH_PROBABILITY_MODEL_MODE,
         )
+        home_advance, away_advance = _advance_probabilities(home_win, draw, away_win)
         home_score, away_score, status, status_detail, completed = _event_score(event)
         matches.append({
             "id": match_number,
@@ -276,17 +297,18 @@ def _projected_knockout_matches(db: Session, espn_events: dict[str, dict]) -> li
                 "venue_city": venue_city,
                 "venue_country": venue_country,
                 "attendance": None,
-                "broadcasts": [],
+                "broadcasts": _knockout_broadcasts(match_number),
                 "events": [],
                 "goals": [],
             },
             "prediction": {
-                "home_win_probability": home_win,
-                "draw_probability": draw,
-                "away_win_probability": away_win,
+                "home_win_probability": home_advance,
+                "draw_probability": 0,
+                "away_win_probability": away_advance,
                 "home_expected_goals": home_xg,
                 "away_expected_goals": away_xg,
                 "model_mode": MATCH_PROBABILITY_MODEL_MODE,
+                "market": "advance",
             },
         })
     _KNOCKOUT_MATCH_CACHE = (now, cache_key, matches)

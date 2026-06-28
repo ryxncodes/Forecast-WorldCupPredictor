@@ -11,10 +11,10 @@ type ThemeChoice = "light" | "dark";
 const navLinks = [
   { href: "/", label: "Forecast" },
   { href: "/bracket", label: "Bracket" },
-  { href: "/third-place", label: "Third place" },
-  { href: "/history", label: "History" },
   { href: "/matches", label: "Matches" },
+  { href: "/history", label: "History" },
   { href: "/accuracy", label: "Accuracy" },
+  { href: "/third-place", label: "Third place" },
 ];
 
 function getSystemTheme(): ThemeChoice {

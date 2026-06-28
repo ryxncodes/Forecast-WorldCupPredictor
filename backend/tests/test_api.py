@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+import pytest
 
 from app.api import routes_matches
 from app.main import app
@@ -21,6 +22,14 @@ def test_dashboard_endpoints_are_public_read_only(monkeypatch):
         assert matches.json()[72]["match_number"] == 73
         assert matches.json()[72]["stage"] == "round_of_32"
         assert matches.json()[72]["matchup_status"] == "projected"
+        assert matches.json()[72]["details"]["broadcasts"] == ["FOX", "Telemundo"]
+        assert matches.json()[81]["details"]["broadcasts"] == ["FS1", "Telemundo"]
+        assert matches.json()[72]["prediction"]["draw_probability"] == 0
+        assert (
+            matches.json()[72]["prediction"]["home_win_probability"]
+            + matches.json()[72]["prediction"]["away_win_probability"]
+        ) == pytest.approx(1)
+        assert matches.json()[72]["prediction"]["market"] == "advance"
         assert matches.json()[-2]["stage"] == "third_place"
         assert matches.json()[-1]["match_number"] == 104
         assert standings.status_code == 200
