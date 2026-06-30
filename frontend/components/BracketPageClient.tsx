@@ -18,6 +18,14 @@ function formatPercent(value: number) {
   return `${Math.round(percent)}%`;
 }
 
+function formatBracketScore(match: BracketMatch) {
+  if (match.home_score == null || match.away_score == null) return null;
+  if (match.home_shootout_score != null || match.away_shootout_score != null) {
+    return `${match.home_score} (${match.home_shootout_score ?? 0}) – ${match.away_score} (${match.away_shootout_score ?? 0})`;
+  }
+  return `${match.home_score} – ${match.away_score}`;
+}
+
 const knockoutDates: Record<number, string> = {
   73: "Jun 28 · 3:00 PM ET", 74: "Jun 29 · 1:00 PM ET",
   75: "Jun 29 · 9:00 PM ET", 76: "Jun 29 · 4:30 PM ET",
@@ -49,9 +57,10 @@ function TeamLine({ team, probability, winner }: { team: BracketTeam; probabilit
 
 function MatchCard({ match, connectPair }: { match: BracketMatch; connectPair: boolean }) {
   const homeWins = match.projected_winner.team_id === match.home.team_id;
+  const score = formatBracketScore(match);
   return (
     <article className={connectPair ? "bracket-match connector-pair" : "bracket-match"} data-match-id={match.match_number}>
-      <div className="bracket-match-meta"><span>#{match.match_number}</span><span>{knockoutDates[match.match_number]}</span>{match.winner_status === "confirmed" ? <em>Confirmed</em> : null}</div>
+      <div className="bracket-match-meta"><span>#{match.match_number}</span><span>{knockoutDates[match.match_number]}</span>{score ? <em className="bracket-score">{score}</em> : null}</div>
       <TeamLine team={match.home} probability={match.home_advance_probability} winner={homeWins} />
       <TeamLine team={match.away} probability={match.away_advance_probability} winner={!homeWins} />
     </article>

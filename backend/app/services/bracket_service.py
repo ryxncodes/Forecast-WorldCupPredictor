@@ -114,6 +114,25 @@ def _confirmed_winner_id(
     return team_by_name[winner].id if winner in team_by_name else None
 
 
+def _confirmed_result_payload(event: dict | None) -> dict:
+    if not event:
+        return {}
+    payload = {
+        "status": event.get("state"),
+        "status_detail": event.get("detail"),
+    }
+    if event.get("state") not in {"in", "post"} and not event.get("completed"):
+        return payload
+    payload.update({
+        "home_score": event.get("home_score"),
+        "away_score": event.get("away_score"),
+        "home_shootout_score": event.get("home_shootout_score"),
+        "away_shootout_score": event.get("away_shootout_score"),
+        "decided_by": event.get("decided_by"),
+    })
+    return payload
+
+
 def _source_team(
     confirmed: dict[int, dict],
     match_number: int,
@@ -166,6 +185,7 @@ def bracket_projection(db: Session, confirmed_knockouts: dict[int, dict] | None 
         )
         match["home_slot"] = home_slot
         match["away_slot"] = away_slot
+        match.update(_confirmed_result_payload(confirmed.get(offset)))
         matches_by_number[offset] = match
         r32.append(match)
     rounds.append({"key": "round_of_32", "label": "Round of 32", "matches": r32})
@@ -197,6 +217,7 @@ def bracket_projection(db: Session, confirmed_knockouts: dict[int, dict] | None 
             )
             match["home_source"] = home_source
             match["away_source"] = away_source
+            match.update(_confirmed_result_payload(confirmed.get(match_number)))
             matches_by_number[match_number] = match
             matches.append(match)
         rounds.append({"key": round_name, "label": ROUND_LABELS[round_name], "matches": matches})

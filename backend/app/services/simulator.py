@@ -44,6 +44,56 @@ def _play_pairs(
     return [knockout_winner(home, away, ratings, rng) for home, away in pairs]
 
 
+def _team_id_by_name(teams: list[dict]) -> dict[str, int]:
+    return {team["name"]: team["id"] for team in teams}
+
+
+def _confirmed_team_id(
+    confirmed_knockouts: dict[int, dict], team_ids: dict[str, int], match_number: int, key: str
+) -> int | None:
+    name = confirmed_knockouts.get(match_number, {}).get(key)
+    return team_ids.get(name) if name else None
+
+
+def _confirmed_pair(
+    confirmed_knockouts: dict[int, dict],
+    team_ids: dict[str, int],
+    match_number: int,
+    fallback: tuple[int, int],
+) -> tuple[int, int]:
+    home = _confirmed_team_id(confirmed_knockouts, team_ids, match_number, "home")
+    away = _confirmed_team_id(confirmed_knockouts, team_ids, match_number, "away")
+    return home or fallback[0], away or fallback[1]
+
+
+def _play_knockout_match(
+    match_number: int,
+    home: int,
+    away: int,
+    ratings: dict[int, float],
+    rng: random.Random,
+    confirmed_knockouts: dict[int, dict],
+    team_ids: dict[str, int],
+) -> int:
+    winner = _confirmed_team_id(confirmed_knockouts, team_ids, match_number, "winner")
+    if winner in {home, away}:
+        return winner
+    return knockout_winner(home, away, ratings, rng)
+
+
+def _play_numbered_pairs(
+    numbered_pairs: list[tuple[int, tuple[int, int]]],
+    ratings: dict[int, float],
+    rng: random.Random,
+    confirmed_knockouts: dict[int, dict],
+    team_ids: dict[str, int],
+) -> dict[int, int]:
+    return {
+        match_number: _play_knockout_match(match_number, home, away, ratings, rng, confirmed_knockouts, team_ids)
+        for match_number, (home, away) in numbered_pairs
+    }
+
+
 def _play_from_matches(
     sources: list[tuple[int, int]], previous: dict[int, int],
     ratings: dict[int, float], rng: random.Random,
@@ -56,6 +106,7 @@ def run_tournament_simulation(
     matches: list[dict],
     simulations: int = 10_000,
     seed: int | None = None,
+    confirmed_knockouts: dict[int, dict] | None = None,
 ) -> list[ForecastRow]:
     """Repeat the unfinished tournament and count stage appearances.
 
@@ -67,6 +118,8 @@ def run_tournament_simulation(
 
     rng = random.Random(seed)
     ratings = {team["id"]: team["rating"] for team in teams}
+    team_ids = _team_id_by_name(teams)
+    confirmed_knockouts = confirmed_knockouts or {}
     counts = {team["id"]: defaultdict(int) for team in teams}
 
     for _ in range(simulations):
@@ -115,26 +168,65 @@ def run_tournament_simulation(
             (winners["K"], thirds[assignment["K"]]),
             (runners_up["D"], runners_up["G"]),
         ]
-        r32_winners = dict(zip(range(73, 89), _play_pairs(r32_pairs, ratings, rng)))
+        r32_numbered_pairs = [
+            (match_number, _confirmed_pair(confirmed_knockouts, team_ids, match_number, pair))
+            for match_number, pair in zip(range(73, 89), r32_pairs)
+        ]
+        r32_winners = _play_numbered_pairs(r32_numbered_pairs, ratings, rng, confirmed_knockouts, team_ids)
         for team_id in r32_winners.values():
             counts[team_id]["round_of_16"] += 1
 
         r16_sources = [(73, 75), (76, 77), (74, 78), (79, 80), (83, 84), (81, 82), (86, 88), (85, 87)]
-        r16_winners = dict(zip(range(89, 97), _play_from_matches(r16_sources, r32_winners, ratings, rng)))
+        r16_numbered_pairs = [
+            (match_number, _confirmed_pair(
+                confirmed_knockouts,
+                team_ids,
+                match_number,
+                (r32_winners[home_source], r32_winners[away_source]),
+            ))
+            for match_number, (home_source, away_source) in zip(range(89, 97), r16_sources)
+        ]
+        r16_winners = _play_numbered_pairs(r16_numbered_pairs, ratings, rng, confirmed_knockouts, team_ids)
         for team_id in r16_winners.values():
             counts[team_id]["quarterfinal"] += 1
 
         qf_sources = [(89, 90), (93, 94), (91, 92), (95, 96)]
-        qf_winners = dict(zip(range(97, 101), _play_from_matches(qf_sources, r16_winners, ratings, rng)))
+        qf_numbered_pairs = [
+            (match_number, _confirmed_pair(
+                confirmed_knockouts,
+                team_ids,
+                match_number,
+                (r16_winners[home_source], r16_winners[away_source]),
+            ))
+            for match_number, (home_source, away_source) in zip(range(97, 101), qf_sources)
+        ]
+        qf_winners = _play_numbered_pairs(qf_numbered_pairs, ratings, rng, confirmed_knockouts, team_ids)
         semifinalists = list(qf_winners.values())
         for team_id in semifinalists:
             counts[team_id]["semifinal"] += 1
 
         semifinal_sources = [(97, 98), (99, 100)]
-        finalists = _play_from_matches(semifinal_sources, qf_winners, ratings, rng)
+        semifinal_pairs = [
+            _confirmed_pair(
+                confirmed_knockouts,
+                team_ids,
+                match_number,
+                (qf_winners[home_source], qf_winners[away_source]),
+            )
+            for match_number, (home_source, away_source) in zip(range(101, 103), semifinal_sources)
+        ]
+        semifinal_winners = _play_numbered_pairs(
+            list(zip(range(101, 103), semifinal_pairs)),
+            ratings,
+            rng,
+            confirmed_knockouts,
+            team_ids,
+        )
+        finalists = [semifinal_winners[101], semifinal_winners[102]]
         for team_id in finalists:
             counts[team_id]["final"] += 1
-        champion = _play_pairs([(finalists[0], finalists[1])], ratings, rng)[0]
+        final_pair = _confirmed_pair(confirmed_knockouts, team_ids, 104, (finalists[0], finalists[1]))
+        champion = _play_knockout_match(104, final_pair[0], final_pair[1], ratings, rng, confirmed_knockouts, team_ids)
         counts[champion]["champion"] += 1
 
     rows = []

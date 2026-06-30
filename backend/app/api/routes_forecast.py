@@ -2,19 +2,23 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..models.database import get_db
-from ..services.forecast_service import forecast_history, latest_forecast
+from ..services.forecast_service import forecast_history, latest_forecast, live_forecast
+from ..services.live_sync import cached_espn_scoreboard, knockout_match_overrides
 
 
 router = APIRouter(prefix="/forecast", tags=["forecast"])
 
 
 def serialize(run) -> dict:
+    if isinstance(run, dict):
+        return run
     return {
         "id": run.id, "created_at": run.created_at.isoformat(), "simulations": run.simulations,
         "label": run.label, "completed_results": run.completed_results,
         "data_as_of": run.data_as_of.isoformat() if run.data_as_of else None,
         "data_source": run.data_source,
         "model_version": run.model_version,
+        "hidden_probability_keys": [],
         "probabilities": sorted([
             {
                 "team_id": row.team_id, "team": row.team.name, "group": row.team.group,
@@ -28,6 +32,7 @@ def serialize(run) -> dict:
                 "semifinal_probability": row.semifinal_probability,
                 "final_probability": row.final_probability,
                 "champion_probability": row.champion_probability,
+                "eliminated_stage": None,
             }
             for row in run.probabilities
         ], key=lambda item: item["champion_probability"], reverse=True),
@@ -36,7 +41,11 @@ def serialize(run) -> dict:
 
 @router.get("/latest")
 def get_latest_forecast(db: Session = Depends(get_db)):
-    run = latest_forecast(db)
+    try:
+        confirmed_knockouts = knockout_match_overrides(cached_espn_scoreboard())
+    except Exception:
+        confirmed_knockouts = {}
+    run = live_forecast(db, confirmed_knockouts) or latest_forecast(db)
     if run is None:
         raise HTTPException(status_code=404, detail="No forecast has been run yet")
     return serialize(run)

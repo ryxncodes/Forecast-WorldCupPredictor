@@ -14,6 +14,7 @@ export type ForecastRow = {
   team_id: number;
   team: string;
   group: string;
+  eliminated_stage?: string | null;
   advance_probability: number;
   win_group_probability: number;
   runner_up_probability: number;
@@ -35,6 +36,7 @@ export type Forecast = {
   data_as_of: string | null;
   data_source: string;
   model_version: string;
+  hidden_probability_keys?: ProbabilityKey[];
   probabilities: ForecastRow[];
 };
 
@@ -76,6 +78,13 @@ export type BracketMatch = {
   away_advance_probability: number;
   projected_winner: BracketTeam;
   winner_status?: "confirmed" | "projected";
+  status?: "pre" | "in" | "post";
+  status_detail?: string | null;
+  home_score?: number | null;
+  away_score?: number | null;
+  home_shootout_score?: number | null;
+  away_shootout_score?: number | null;
+  decided_by?: "penalties" | "extra_time" | null;
 };
 
 export type BracketRound = {

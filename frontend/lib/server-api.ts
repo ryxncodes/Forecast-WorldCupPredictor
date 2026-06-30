@@ -8,27 +8,18 @@ import {
   loadMatches,
 } from "./api";
 
-export const loadCachedDashboard = unstable_cache(loadDashboard, ["dashboard"], {
-  revalidate: 60,
-  tags: ["dashboard"],
-});
+export const loadCachedDashboard = loadDashboard;
 
 export const loadCachedThirdPlacePage = loadCachedDashboard;
 
-export const loadCachedForecastHistory = unstable_cache(loadForecastHistory, ["forecast-history"], {
+export const loadCachedForecastHistory = unstable_cache(loadForecastHistory, ["forecast-history-v2"], {
   revalidate: 60,
   tags: ["forecast-history"],
 });
 
-export const loadCachedMatches = unstable_cache(loadMatches, ["matches-v3"], {
-  revalidate: 15,
-  tags: ["matches"],
-});
+export const loadCachedMatches = loadMatches;
 
-export const loadCachedBracket = unstable_cache(loadBracket, ["bracket-v2"], {
-  revalidate: 180,
-  tags: ["bracket"],
-});
+export const loadCachedBracket = loadBracket;
 
 export const loadCachedAccuracy = unstable_cache(loadAccuracy, ["accuracy"], {
   revalidate: 180,

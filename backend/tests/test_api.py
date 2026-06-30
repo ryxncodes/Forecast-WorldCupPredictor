@@ -149,6 +149,13 @@ def test_knockout_penalty_winner_advances_in_matches_and_bracket(monkeypatch):
     match_75_bracket = next(match for match in bracket["rounds"][0]["matches"] if match["match_number"] == 75)
     assert match_75_bracket["projected_winner"]["team"] == "Morocco"
     assert match_75_bracket["winner_status"] == "confirmed"
+    assert match_75_bracket["status"] == "post"
+    assert match_75_bracket["status_detail"] == "FT-Pens"
+    assert match_75_bracket["home_score"] == 1
+    assert match_75_bracket["away_score"] == 1
+    assert match_75_bracket["home_shootout_score"] == 2
+    assert match_75_bracket["away_shootout_score"] == 3
+    assert match_75_bracket["decided_by"] == "penalties"
     assert match_75_bracket["home_advance_probability"] == 0
     assert match_75_bracket["away_advance_probability"] == 1
 

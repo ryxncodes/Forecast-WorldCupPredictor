@@ -213,6 +213,7 @@ def knockout_match_overrides(payload: dict) -> dict[int, dict]:
             "away_shootout_score": away_shootout_score,
             "winner": None if winner_name and _placeholder_team(winner_name) else winner_name,
             "winner_side": winner_side,
+            "decided_by": decided_by,
             "state": status.get("state", "pre"),
             "detail": status.get("shortDetail") or status.get("description") or "Scheduled",
             "completed": bool(status.get("completed")) or status.get("state") == "post",

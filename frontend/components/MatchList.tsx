@@ -110,6 +110,7 @@ export function MatchList({ matches }: Props) {
           {group.matches.map((match) => {
           const expanded = expandedIds.has(match.id);
           const live = match.status === "in";
+          const pendingScore = match.status === "pre";
           const canShowPrediction = match.status !== "post";
           const projectedMatchup = match.matchup_status === "projected";
           const knockoutPrediction = match.prediction.market === "advance" || match.stage !== "group";
@@ -135,7 +136,7 @@ export function MatchList({ matches }: Props) {
             ];
           const modelLeader = [...predictionRows].sort((a, b) => b.value - a.value)[0];
           return <div className={expanded ? "match-row-wrap expanded" : "match-row-wrap"} key={match.id}>
-            <button className="match-row" type="button" onClick={() => toggleExpanded(match.id)} aria-expanded={expanded}>
+            <button className={pendingScore ? "match-row pending-score" : "match-row"} type="button" onClick={() => toggleExpanded(match.id)} aria-expanded={expanded}>
               <span className="match-time"><small>#{match.match_number}</small>{formatDateTimeET(match.kickoff)}</span><span className="match-group">{match.group}</span><span className="match-teams"><span className="team-name"><strong>{match.home_team}</strong>{projectedMatchup ? <em>Projected</em> : null}</span><small>vs</small><span className="team-name"><strong>{match.away_team}</strong>{projectedMatchup ? <em>Projected</em> : null}</span></span><span className={live ? "score live" : "score"}>{formatScore(match)}</span><span className="match-edge">{canShowPrediction ? `${modelLeader.label} ${formatPercent(modelLeader.value)}${knockoutPrediction ? " to advance" : ""}` : details.winner ? `${details.winner} advanced` : "Final"}</span><span className={match.completed ? "status completed" : live ? "status live" : "status"}>{match.completed ? <CheckIcon /> : <ClockIcon />}<span><strong>{live ? "Live" : match.completed ? "Completed" : "Scheduled"}</strong><small>{live ? match.status_detail : match.venue}</small></span><ChevronIcon className={expanded ? "chevron open" : "chevron"} /></span>
             </button>
             {expanded ? <div className="match-details-panel">
