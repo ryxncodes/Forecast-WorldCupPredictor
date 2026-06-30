@@ -1,13 +1,14 @@
 from fastapi.testclient import TestClient
 import pytest
 
-from app.api import routes_matches
+from app.api import routes_bracket, routes_matches
 from app.main import app
 
 
 def test_dashboard_endpoints_are_public_read_only(monkeypatch):
     monkeypatch.setattr(routes_matches, "cached_espn_scoreboard", lambda: {"events": []})
     monkeypatch.setattr(routes_matches, "group_match_overrides", lambda payload: {})
+    monkeypatch.setattr(routes_bracket, "cached_espn_scoreboard", lambda: {"events": []})
     with TestClient(app) as client:
         teams = client.get("/teams")
         matches = client.get("/matches")
@@ -41,7 +42,7 @@ def test_dashboard_endpoints_are_public_read_only(monkeypatch):
         assert len(bracket.json()["rounds"]) == 5
         assert len(bracket.json()["rounds"][0]["matches"]) == 16
         assert [match["match_number"] for match in bracket.json()["rounds"][0]["matches"]] == [
-            74, 77, 73, 75, 83, 84, 81, 82, 76, 78, 79, 80, 86, 88, 85, 87
+            73, 75, 76, 77, 83, 84, 81, 82, 74, 78, 79, 80, 86, 88, 85, 87
         ]
         assert [match["match_number"] for match in bracket.json()["rounds"][1]["matches"]] == [
             89, 90, 93, 94, 91, 92, 95, 96
@@ -105,3 +106,51 @@ def test_matches_endpoint_overlays_live_espn_state(monkeypatch):
     assert match["status"] == "in"
     assert match["status_detail"] == "90'+2'"
     assert match["details"]["events"][0]["minute"] == "90'+2'"
+
+
+def test_knockout_penalty_winner_advances_in_matches_and_bracket(monkeypatch):
+    payload = {
+        "events": [{
+            "id": "760488",
+            "status": {"type": {"state": "post", "completed": True, "shortDetail": "FT-Pens", "description": "Final Score - After Penalties"}},
+            "competitions": [{
+                "venue": {"fullName": "Estadio BBVA", "address": {"city": "Guadalupe", "country": "Mexico"}},
+                "attendance": 52000,
+                "broadcasts": [],
+                "details": [],
+                "notes": [{"headline": "Morocco advance 3-2 on penalties"}],
+                "competitors": [
+                    {"homeAway": "home", "score": "1", "winner": False, "shootoutScore": 2, "team": {"id": "449", "displayName": "Netherlands"}},
+                    {"homeAway": "away", "score": "1", "winner": True, "shootoutScore": 3, "team": {"id": "2869", "displayName": "Morocco"}},
+                ],
+            }],
+        }]
+    }
+    monkeypatch.setattr(routes_matches, "cached_espn_scoreboard", lambda: payload)
+    monkeypatch.setattr(routes_matches, "group_match_overrides", lambda payload: {})
+    monkeypatch.setattr(routes_bracket, "cached_espn_scoreboard", lambda: payload)
+
+    with TestClient(app) as client:
+        matches = client.get("/matches").json()
+        bracket = client.get("/bracket").json()
+
+    match_75 = next(match for match in matches if match["match_number"] == 75)
+    assert match_75["home_team"] == "Netherlands"
+    assert match_75["away_team"] == "Morocco"
+    assert match_75["home_score"] == 1
+    assert match_75["away_score"] == 1
+    assert match_75["completed"] is True
+    assert match_75["status_detail"] == "FT-Pens"
+    assert match_75["details"]["home_shootout_score"] == 2
+    assert match_75["details"]["away_shootout_score"] == 3
+    assert match_75["details"]["winner"] == "Morocco"
+    assert match_75["details"]["decided_by"] == "penalties"
+
+    match_75_bracket = next(match for match in bracket["rounds"][0]["matches"] if match["match_number"] == 75)
+    assert match_75_bracket["projected_winner"]["team"] == "Morocco"
+    assert match_75_bracket["winner_status"] == "confirmed"
+    assert match_75_bracket["home_advance_probability"] == 0
+    assert match_75_bracket["away_advance_probability"] == 1
+
+    match_89 = next(match for match in bracket["rounds"][1]["matches"] if match["match_number"] == 89)
+    assert "Morocco" in {match_89["home"]["team"], match_89["away"]["team"]}

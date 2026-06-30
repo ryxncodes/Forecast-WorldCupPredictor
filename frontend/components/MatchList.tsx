@@ -31,6 +31,20 @@ function eventLabel(event: MatchTimelineEvent) {
   return tags.length ? `${event.type} (${tags.join(", ")})` : event.type;
 }
 
+function hasShootoutScore(match: Match) {
+  return match.details?.home_shootout_score != null || match.details?.away_shootout_score != null;
+}
+
+function formatScore(match: Match) {
+  if (match.status === "pre") return "–";
+  const homeScore = match.home_score ?? 0;
+  const awayScore = match.away_score ?? 0;
+  if (hasShootoutScore(match)) {
+    return `${homeScore} (${match.details.home_shootout_score ?? 0}) – ${awayScore} (${match.details.away_shootout_score ?? 0})`;
+  }
+  return `${homeScore} – ${awayScore}`;
+}
+
 export function MatchList({ matches }: Props) {
   const hasLiveMatches = matches.some((match) => match.status === "in");
   const hasUpcomingMatches = matches.some((match) => match.status === "pre");
@@ -103,6 +117,12 @@ export function MatchList({ matches }: Props) {
           const goals = details.goals ?? [];
           const timeline = details.events ?? [];
           const broadcasts = details.broadcasts ?? [];
+          const shootoutLabel = hasShootoutScore(match) ? `${match.home_team} ${details.home_shootout_score ?? 0}, ${match.away_team} ${details.away_shootout_score ?? 0}` : null;
+          const decisionLabel = details.decided_by === "penalties"
+            ? `Advanced on penalties${details.winner ? `: ${details.winner}` : ""}`
+            : details.decided_by === "extra_time" && details.winner
+              ? `Advanced after extra time: ${details.winner}`
+              : null;
           const predictionRows = knockoutPrediction
             ? [
               { label: match.home_team, value: match.prediction.home_win_probability },
@@ -116,7 +136,7 @@ export function MatchList({ matches }: Props) {
           const modelLeader = [...predictionRows].sort((a, b) => b.value - a.value)[0];
           return <div className={expanded ? "match-row-wrap expanded" : "match-row-wrap"} key={match.id}>
             <button className="match-row" type="button" onClick={() => toggleExpanded(match.id)} aria-expanded={expanded}>
-              <span className="match-time"><small>#{match.match_number}</small>{formatDateTimeET(match.kickoff)}</span><span className="match-group">{match.group}</span><span className="match-teams"><span className="team-name"><strong>{match.home_team}</strong>{projectedMatchup ? <em>Projected</em> : null}</span><small>vs</small><span className="team-name"><strong>{match.away_team}</strong>{projectedMatchup ? <em>Projected</em> : null}</span></span><span className={live ? "score live" : "score"}>{match.status !== "pre" ? `${match.home_score} – ${match.away_score}` : "–"}</span><span className="match-edge">{canShowPrediction ? `${modelLeader.label} ${formatPercent(modelLeader.value)}${knockoutPrediction ? " to advance" : ""}` : "Final"}</span><span className={match.completed ? "status completed" : live ? "status live" : "status"}>{match.completed ? <CheckIcon /> : <ClockIcon />}<span><strong>{live ? "Live" : match.completed ? "Completed" : "Scheduled"}</strong><small>{live ? match.status_detail : match.venue}</small></span><ChevronIcon className={expanded ? "chevron open" : "chevron"} /></span>
+              <span className="match-time"><small>#{match.match_number}</small>{formatDateTimeET(match.kickoff)}</span><span className="match-group">{match.group}</span><span className="match-teams"><span className="team-name"><strong>{match.home_team}</strong>{projectedMatchup ? <em>Projected</em> : null}</span><small>vs</small><span className="team-name"><strong>{match.away_team}</strong>{projectedMatchup ? <em>Projected</em> : null}</span></span><span className={live ? "score live" : "score"}>{formatScore(match)}</span><span className="match-edge">{canShowPrediction ? `${modelLeader.label} ${formatPercent(modelLeader.value)}${knockoutPrediction ? " to advance" : ""}` : details.winner ? `${details.winner} advanced` : "Final"}</span><span className={match.completed ? "status completed" : live ? "status live" : "status"}>{match.completed ? <CheckIcon /> : <ClockIcon />}<span><strong>{live ? "Live" : match.completed ? "Completed" : "Scheduled"}</strong><small>{live ? match.status_detail : match.venue}</small></span><ChevronIcon className={expanded ? "chevron open" : "chevron"} /></span>
             </button>
             {expanded ? <div className="match-details-panel">
               <div className="match-detail-grid">
@@ -124,6 +144,8 @@ export function MatchList({ matches }: Props) {
                 <div><span>Venue</span><strong>{details.venue_full_name || match.venue}</strong><small>{[details.venue_city, details.venue_country].filter(Boolean).join(", ")}</small></div>
                 <div><span>Attendance</span><strong>{details.attendance ? details.attendance.toLocaleString() : "TBD"}</strong></div>
                 <div><span>Broadcast</span><strong>{broadcasts.length ? broadcasts.join(", ") : "TBD"}</strong></div>
+                {shootoutLabel ? <div><span>Shootout</span><strong>{shootoutLabel}</strong><small>{decisionLabel}</small></div> : null}
+                {!shootoutLabel && decisionLabel ? <div><span>Decision</span><strong>{decisionLabel}</strong></div> : null}
               </div>
               {canShowPrediction ? <div className="match-prediction-card">
                 <div><strong>{knockoutPrediction ? "Model advance chance" : "Model prediction"}</strong><span>Expected goals: {match.home_team} {match.prediction.home_expected_goals.toFixed(2)}, {match.away_team} {match.prediction.away_expected_goals.toFixed(2)}</span></div>

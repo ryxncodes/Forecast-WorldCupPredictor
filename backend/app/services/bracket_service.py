@@ -16,7 +16,7 @@ R32_PAIRS = [
     ("1B", "3B"), ("1J", "2H"), ("1K", "3K"), ("2D", "2G"),
 ]
 ROUND_SOURCES = {
-    "round_of_16": [(74, 77), (73, 75), (76, 78), (79, 80), (83, 84), (81, 82), (86, 88), (85, 87)],
+    "round_of_16": [(73, 75), (76, 77), (74, 78), (79, 80), (83, 84), (81, 82), (86, 88), (85, 87)],
     "quarterfinal": [(89, 90), (93, 94), (91, 92), (95, 96)],
     "semifinal": [(97, 98), (99, 100)],
     "final": [(101, 102)],
@@ -55,6 +55,7 @@ def _project_match(
     home: BracketTeam,
     away: BracketTeam,
     forecast_by_team: dict[int, object],
+    confirmed_winner_id: int | None = None,
 ) -> dict:
     home_xg, away_xg, home_win, draw, away_win = match_probabilities(
         home.rating,
@@ -65,6 +66,10 @@ def _project_match(
     home_advance = home_win / decisive_total if decisive_total else 0.5
     away_advance = away_win / decisive_total if decisive_total else 0.5
     winner = home if home_advance >= away_advance else away
+    if confirmed_winner_id == home.id:
+        home_advance, away_advance, winner = 1, 0, home
+    elif confirmed_winner_id == away.id:
+        home_advance, away_advance, winner = 0, 1, away
     return {
         "match_number": match_number,
         "round": round_name,
@@ -75,6 +80,7 @@ def _project_match(
         "home_advance_probability": home_advance,
         "away_advance_probability": away_advance,
         "projected_winner": _team_payload(winner, forecast_by_team),
+        "winner_status": "confirmed" if confirmed_winner_id in {home.id, away.id} else "projected",
     }
 
 
@@ -97,7 +103,29 @@ def _order_rounds_by_path(rounds: list[dict]) -> None:
         )
 
 
-def bracket_projection(db: Session) -> dict:
+def _confirmed_name(confirmed: dict[int, dict], match_number: int, side: str) -> str | None:
+    return confirmed.get(match_number, {}).get(side)
+
+
+def _confirmed_winner_id(
+    confirmed: dict[int, dict], match_number: int, team_by_name: dict[str, BracketTeam]
+) -> int | None:
+    winner = confirmed.get(match_number, {}).get("winner")
+    return team_by_name[winner].id if winner in team_by_name else None
+
+
+def _source_team(
+    confirmed: dict[int, dict],
+    match_number: int,
+    side: str,
+    fallback: BracketTeam,
+    team_by_name: dict[str, BracketTeam],
+) -> BracketTeam:
+    name = _confirmed_name(confirmed, match_number, side)
+    return team_by_name.get(name, fallback)
+
+
+def bracket_projection(db: Session, confirmed_knockouts: dict[int, dict] | None = None) -> dict:
     forecast = latest_forecast(db)
     if forecast is None:
         return {"forecast": None, "favorite": None, "rounds": []}
@@ -107,6 +135,8 @@ def bracket_projection(db: Session) -> dict:
         team["id"]: BracketTeam(team["id"], team["name"], team["group"], team["rating"])
         for team in teams
     }
+    team_by_name = {team.name: team for team in team_by_id.values()}
+    confirmed = confirmed_knockouts or {}
     forecast_by_team = {row.team_id: row for row in forecast.probabilities}
     tables = build_standings(teams, match_dicts(db))
     winners = {group: rows[0].team_id for group, rows in tables.items()}
@@ -129,9 +159,10 @@ def bracket_projection(db: Session) -> dict:
         match = _project_match(
             offset,
             "round_of_32",
-            team_by_id[slot_ids[home_slot]],
-            team_by_id[slot_ids[away_slot]],
+            _source_team(confirmed, offset, "home", team_by_id[slot_ids[home_slot]], team_by_name),
+            _source_team(confirmed, offset, "away", team_by_id[slot_ids[away_slot]], team_by_name),
             forecast_by_team,
+            _confirmed_winner_id(confirmed, offset, team_by_name),
         )
         match["home_slot"] = home_slot
         match["away_slot"] = away_slot
@@ -147,9 +178,22 @@ def bracket_projection(db: Session) -> dict:
             match = _project_match(
                 match_number,
                 round_name,
-                team_by_id[matches_by_number[home_source]["projected_winner"]["team_id"]],
-                team_by_id[matches_by_number[away_source]["projected_winner"]["team_id"]],
+                _source_team(
+                    confirmed,
+                    match_number,
+                    "home",
+                    team_by_id[matches_by_number[home_source]["projected_winner"]["team_id"]],
+                    team_by_name,
+                ),
+                _source_team(
+                    confirmed,
+                    match_number,
+                    "away",
+                    team_by_id[matches_by_number[away_source]["projected_winner"]["team_id"]],
+                    team_by_name,
+                ),
                 forecast_by_team,
+                _confirmed_winner_id(confirmed, match_number, team_by_name),
             )
             match["home_source"] = home_source
             match["away_source"] = away_source

@@ -20,12 +20,12 @@ export const loadCachedForecastHistory = unstable_cache(loadForecastHistory, ["f
   tags: ["forecast-history"],
 });
 
-export const loadCachedMatches = unstable_cache(loadMatches, ["matches-v2"], {
+export const loadCachedMatches = unstable_cache(loadMatches, ["matches-v3"], {
   revalidate: 15,
   tags: ["matches"],
 });
 
-export const loadCachedBracket = unstable_cache(loadBracket, ["bracket"], {
+export const loadCachedBracket = unstable_cache(loadBracket, ["bracket-v2"], {
   revalidate: 180,
   tags: ["bracket"],
 });

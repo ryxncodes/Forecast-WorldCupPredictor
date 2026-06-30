@@ -75,6 +75,7 @@ export type BracketMatch = {
   home_advance_probability: number;
   away_advance_probability: number;
   projected_winner: BracketTeam;
+  winner_status?: "confirmed" | "projected";
 };
 
 export type BracketRound = {
@@ -154,6 +155,12 @@ export type MatchDetails = {
   venue_country?: string;
   attendance?: number | null;
   broadcasts?: string[];
+  home_shootout_score?: number | null;
+  away_shootout_score?: number | null;
+  winner?: string | null;
+  winner_side?: "home" | "away" | null;
+  decided_by?: "penalties" | "extra_time" | null;
+  notes?: string[];
   goals?: MatchTimelineEvent[];
   events?: MatchTimelineEvent[];
 };

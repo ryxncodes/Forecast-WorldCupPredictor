@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 from ..models import Match, SyncStatus
 from .accuracy_service import backfill_completed_match_predictions, lock_upcoming_match_predictions
 from .forecast_service import latest_forecast, recalculate_ratings, run_and_store_forecast
+from .knockout_schedule import KNOCKOUT_ESPN_ID_TO_MATCH_NUMBER
 from .model_parameters import MODEL_VERSION
 
 
@@ -107,6 +108,21 @@ def normalize_match_details(competition: dict, team_by_espn_id: dict[str, str]) 
     }
 
 
+def _espn_team_name(competitor: dict) -> str:
+    return canonical(competitor.get("team", {}).get("displayName", ""))
+
+
+def _team_by_espn_id(competitors: list[dict]) -> dict[str, str]:
+    return {
+        str(item.get("team", {}).get("id")): _espn_team_name(item)
+        for item in competitors
+    }
+
+
+def _placeholder_team(name: str) -> bool:
+    return name.startswith(("Group ", "Round ", "Quarterfinal", "Semifinal", "Third Place"))
+
+
 def _espn_group_events(payload: dict) -> dict[frozenset[str], dict]:
     events = {}
     for event in payload.get("events", []):
@@ -117,10 +133,7 @@ def _espn_group_events(payload: dict) -> dict[frozenset[str], dict]:
         by_side = {item["homeAway"]: item for item in competitors}
         home = canonical(by_side["home"]["team"]["displayName"])
         away = canonical(by_side["away"]["team"]["displayName"])
-        team_by_espn_id = {
-            str(item["team"]["id"]): canonical(item["team"]["displayName"])
-            for item in competitors
-        }
+        team_by_espn_id = _team_by_espn_id(competitors)
         status = event.get("status", {}).get("type", {})
         events[frozenset((home, away))] = {
             "home": home,
@@ -136,6 +149,76 @@ def _espn_group_events(payload: dict) -> dict[frozenset[str], dict]:
 
 def group_match_overrides(payload: dict) -> dict[frozenset[str], dict]:
     return _espn_group_events(payload)
+
+
+def _shootout_score(competitor: dict) -> int | None:
+    value = competitor.get("shootoutScore")
+    return int(value) if value is not None else None
+
+
+def _knockout_decision(home: dict, away: dict, status: dict) -> tuple[str | None, str | None]:
+    if status.get("state") != "post":
+        return None, None
+    if home.get("winner") is True:
+        return _espn_team_name(home), home.get("homeAway")
+    if away.get("winner") is True:
+        return _espn_team_name(away), away.get("homeAway")
+    home_score = int(home.get("score", 0))
+    away_score = int(away.get("score", 0))
+    if home_score != away_score:
+        return (_espn_team_name(home), home.get("homeAway")) if home_score > away_score else (_espn_team_name(away), away.get("homeAway"))
+    return None, None
+
+
+def knockout_match_overrides(payload: dict) -> dict[int, dict]:
+    events = {}
+    for event in payload.get("events", []):
+        match_number = KNOCKOUT_ESPN_ID_TO_MATCH_NUMBER.get(str(event.get("id", "")))
+        if match_number is None:
+            continue
+        competition = event.get("competitions", [{}])[0]
+        competitors = competition.get("competitors", [])
+        by_side = {item.get("homeAway"): item for item in competitors}
+        if "home" not in by_side or "away" not in by_side:
+            continue
+        home = by_side["home"]
+        away = by_side["away"]
+        status = event.get("status", {}).get("type", {})
+        home_name = _espn_team_name(home)
+        away_name = _espn_team_name(away)
+        winner_name, winner_side = _knockout_decision(home, away, status)
+        team_by_espn_id = _team_by_espn_id(competitors)
+        details = normalize_match_details(competition, team_by_espn_id)
+        home_shootout_score = _shootout_score(home)
+        away_shootout_score = _shootout_score(away)
+        decided_by = None
+        if home_shootout_score is not None or away_shootout_score is not None:
+            decided_by = "penalties"
+        elif "extra" in (status.get("description", "") + status.get("detail", "")).lower():
+            decided_by = "extra_time"
+        details.update({
+            "notes": [note.get("headline") or note.get("text") for note in competition.get("notes", []) if note.get("headline") or note.get("text")],
+            "home_shootout_score": home_shootout_score,
+            "away_shootout_score": away_shootout_score,
+            "winner": winner_name,
+            "winner_side": winner_side,
+            "decided_by": decided_by,
+        })
+        events[match_number] = {
+            "home": None if _placeholder_team(home_name) else home_name,
+            "away": None if _placeholder_team(away_name) else away_name,
+            "home_score": int(home.get("score", 0)),
+            "away_score": int(away.get("score", 0)),
+            "home_shootout_score": home_shootout_score,
+            "away_shootout_score": away_shootout_score,
+            "winner": None if winner_name and _placeholder_team(winner_name) else winner_name,
+            "winner_side": winner_side,
+            "state": status.get("state", "pre"),
+            "detail": status.get("shortDetail") or status.get("description") or "Scheduled",
+            "completed": bool(status.get("completed")) or status.get("state") == "post",
+            "details": details,
+        }
+    return events
 
 
 def live_match_overrides(ttl_seconds: int = LIVE_SCOREBOARD_TTL_SECONDS) -> dict[frozenset[str], dict]:

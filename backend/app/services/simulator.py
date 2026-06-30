@@ -119,7 +119,7 @@ def run_tournament_simulation(
         for team_id in r32_winners.values():
             counts[team_id]["round_of_16"] += 1
 
-        r16_sources = [(74, 77), (73, 75), (76, 78), (79, 80), (83, 84), (81, 82), (86, 88), (85, 87)]
+        r16_sources = [(73, 75), (76, 77), (74, 78), (79, 80), (83, 84), (81, 82), (86, 88), (85, 87)]
         r16_winners = dict(zip(range(89, 97), _play_from_matches(r16_sources, r32_winners, ratings, rng)))
         for team_id in r16_winners.values():
             counts[team_id]["quarterfinal"] += 1

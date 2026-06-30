@@ -19,21 +19,22 @@ function formatPercent(value: number) {
 }
 
 const knockoutDates: Record<number, string> = {
-  73: "Jun 28 · 3:00 PM ET", 74: "Jun 28 · 4:30 PM ET",
-  75: "Jun 29 · 9:00 PM ET", 76: "Jun 29 · 1:00 PM ET",
-  77: "Jun 30 · 5:00 PM ET", 78: "Jun 30 · 1:00 PM ET",
+  73: "Jun 28 · 3:00 PM ET", 74: "Jun 29 · 1:00 PM ET",
+  75: "Jun 29 · 9:00 PM ET", 76: "Jun 29 · 4:30 PM ET",
+  77: "Jun 30 · 1:00 PM ET", 78: "Jun 30 · 5:00 PM ET",
   79: "Jun 30 · 9:00 PM ET", 80: "Jul 1 · 12:00 PM ET",
-  81: "Jul 1 · 8:00 PM ET", 82: "Jul 2 · 4:00 PM ET",
-  83: "Jul 3 · 7:00 PM ET", 84: "Jul 3 · 3:00 PM ET",
-  85: "Jul 3 · 11:00 PM ET", 86: "Jul 4 · 6:00 PM ET",
-  87: "Jul 4 · 9:30 PM ET", 88: "Jul 4 · 2:00 PM ET",
-  89: "Jul 4 · 5:00 PM ET", 90: "Jul 5 · 1:00 PM ET",
+  81: "Jul 1 · 4:00 PM ET", 82: "Jul 1 · 8:00 PM ET",
+  83: "Jul 2 · 3:00 PM ET", 84: "Jul 2 · 7:00 PM ET",
+  85: "Jul 2 · 11:00 PM ET", 86: "Jul 3 · 2:00 PM ET",
+  87: "Jul 3 · 6:00 PM ET", 88: "Jul 3 · 9:30 PM ET",
+  89: "Jul 4 · 1:00 PM ET", 90: "Jul 4 · 5:00 PM ET",
   91: "Jul 5 · 4:00 PM ET", 92: "Jul 5 · 8:00 PM ET",
   93: "Jul 6 · 3:00 PM ET", 94: "Jul 6 · 8:00 PM ET",
   95: "Jul 7 · 12:00 PM ET", 96: "Jul 7 · 4:00 PM ET",
   97: "Jul 9 · 4:00 PM ET", 98: "Jul 10 · 3:00 PM ET",
   99: "Jul 11 · 5:00 PM ET", 100: "Jul 11 · 9:00 PM ET",
   101: "Jul 14 · 3:00 PM ET", 102: "Jul 15 · 3:00 PM ET",
+  103: "Jul 18 · 5:00 PM ET",
   104: "Jul 19 · 3:00 PM ET",
 };
 
@@ -50,7 +51,7 @@ function MatchCard({ match, connectPair }: { match: BracketMatch; connectPair: b
   const homeWins = match.projected_winner.team_id === match.home.team_id;
   return (
     <article className={connectPair ? "bracket-match connector-pair" : "bracket-match"} data-match-id={match.match_number}>
-      <div className="bracket-match-meta"><span>#{match.match_number}</span><span>{knockoutDates[match.match_number]}</span></div>
+      <div className="bracket-match-meta"><span>#{match.match_number}</span><span>{knockoutDates[match.match_number]}</span>{match.winner_status === "confirmed" ? <em>Confirmed</em> : null}</div>
       <TeamLine team={match.home} probability={match.home_advance_probability} winner={homeWins} />
       <TeamLine team={match.away} probability={match.away_advance_probability} winner={!homeWins} />
     </article>
