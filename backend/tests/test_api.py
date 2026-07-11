@@ -194,3 +194,31 @@ def test_bracket_uses_live_knockout_forecast_for_favorite_and_timestamp(monkeypa
     }
     assert bracket["favorite"]["team"] == "Spain"
     assert bracket["favorite"]["champion_probability"] == 1
+
+
+def test_public_knockout_endpoints_share_one_scoreboard_revision(monkeypatch):
+    from app.api import routes_dashboard, routes_forecast
+
+    calls = 0
+
+    def scoreboard():
+        nonlocal calls
+        calls += 1
+        return {"events": []}
+
+    for route in (routes_dashboard, routes_forecast, routes_bracket, routes_matches):
+        monkeypatch.setattr(route, "cached_espn_scoreboard", scoreboard)
+
+    with TestClient(app) as client:
+        dashboard = client.get("/dashboard")
+        forecast = client.get("/forecast/latest")
+        bracket = client.get("/bracket")
+        matches = client.get("/matches")
+
+    assert dashboard.status_code == 200
+    assert forecast.status_code == 200
+    assert bracket.status_code == 200
+    assert matches.status_code == 200
+    assert calls == 1
+    assert dashboard.json()["forecast"]["completed_results"] == forecast.json()["completed_results"]
+    assert bracket.json()["forecast"]["completed_results"] == forecast.json()["completed_results"]

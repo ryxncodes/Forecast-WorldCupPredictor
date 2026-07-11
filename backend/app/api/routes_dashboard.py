@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from ..models import SyncStatus
 from ..models.database import get_db
 from ..services.forecast_service import latest_forecast, live_forecast, match_dicts, team_dicts
+from ..services.knockout_state import knockout_state
 from ..services.live_sync import cached_espn_scoreboard, knockout_match_overrides
 from ..services.standings import build_standings, rank_third_place
 from .routes_forecast import serialize
@@ -18,10 +19,7 @@ def get_dashboard(db: Session = Depends(get_db)):
     stored_forecast = latest_forecast(db)
     if stored_forecast is None:
         raise HTTPException(status_code=404, detail="No forecast has been run yet")
-    try:
-        confirmed_knockouts = knockout_match_overrides(cached_espn_scoreboard())
-    except Exception:
-        confirmed_knockouts = {}
+    confirmed_knockouts = knockout_state(cached_espn_scoreboard, knockout_match_overrides).events
     forecast = live_forecast(db, confirmed_knockouts) or stored_forecast
     tables = build_standings(team_dicts(db), match_dicts(db))
     sync_status = db.scalar(select(SyncStatus).order_by(SyncStatus.id.desc()).limit(1))

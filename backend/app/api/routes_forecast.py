@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from ..models.database import get_db
 from ..services.forecast_service import forecast_history, latest_forecast, live_forecast
+from ..services.knockout_state import knockout_state
 from ..services.live_sync import cached_espn_scoreboard, knockout_match_overrides
 
 
@@ -41,10 +42,7 @@ def serialize(run) -> dict:
 
 @router.get("/latest")
 def get_latest_forecast(db: Session = Depends(get_db)):
-    try:
-        confirmed_knockouts = knockout_match_overrides(cached_espn_scoreboard())
-    except Exception:
-        confirmed_knockouts = {}
+    confirmed_knockouts = knockout_state(cached_espn_scoreboard, knockout_match_overrides).events
     run = live_forecast(db, confirmed_knockouts) or latest_forecast(db)
     if run is None:
         raise HTTPException(status_code=404, detail="No forecast has been run yet")

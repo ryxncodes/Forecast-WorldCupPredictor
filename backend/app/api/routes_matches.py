@@ -9,6 +9,7 @@ from ..models import Match, Team
 from ..models.database import get_db
 from ..services.bracket_service import bracket_projection
 from ..services.knockout_schedule import KNOCKOUT_SCHEDULE, ROUND_LABELS, knockout_broadcasts
+from ..services.knockout_state import knockout_state
 from ..services.live_sync import cached_espn_scoreboard, group_match_overrides, knockout_match_overrides, result_fingerprint, score_for_event
 from ..services.match_model import match_probabilities
 from ..settings import MATCH_PROBABILITY_MODEL_MODE
@@ -231,9 +232,9 @@ def get_matches(db: Session = Depends(get_db)):
     matches = db.scalars(
         select(Match).options(joinedload(Match.home_team), joinedload(Match.away_team)).order_by(Match.match_number)
     )
-    payload = None
+    state = knockout_state(cached_espn_scoreboard, knockout_match_overrides)
+    payload = state.scoreboard
     try:
-        payload = cached_espn_scoreboard()
         overrides = group_match_overrides(payload)
     except Exception:
         overrides = {}
@@ -241,5 +242,4 @@ def get_matches(db: Session = Depends(get_db)):
         serialize(match, overrides.get(frozenset((match.home_team.name, match.away_team.name))))
         for match in matches
     ]
-    knockout_events = knockout_match_overrides(payload) if payload else {}
-    return [*group_matches, *_projected_knockout_matches(db, knockout_events)]
+    return [*group_matches, *_projected_knockout_matches(db, state.events)]
