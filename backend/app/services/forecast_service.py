@@ -34,25 +34,61 @@ def match_dicts(db: Session) -> list[dict]:
     ]
 
 
-def _live_team_dicts(db: Session, confirmed_knockouts: dict[int, dict]) -> list[dict]:
-    teams = team_dicts(db)
+def _live_group_state(db: Session, group_overrides: dict[frozenset[str], dict]) -> tuple[list[dict], int]:
+    """Replay group results once from initial ratings, preferring the live scoreboard."""
+    teams = [
+        {
+            "id": team.id, "name": team.name, "code": team.code,
+            "group": team.group, "rating": team.initial_rating,
+        }
+        for team in db.scalars(select(Team).order_by(Team.group, Team.name))
+    ]
     by_id = {team["id"]: team for team in teams}
     by_name = {team["name"]: team for team in teams}
-    for match_number, event in sorted(confirmed_knockouts.items()):
+    completed_groups = 0
+    for match in db.scalars(select(Match).order_by(Match.kickoff, Match.id)):
+        home = by_id[match.home_team_id]
+        away = by_id[match.away_team_id]
+        event = group_overrides.get(frozenset((home["name"], away["name"])))
+        if event and event.get("state") == "post":
+            live_home = by_name.get(event.get("home"))
+            live_away = by_name.get(event.get("away"))
+            home_score = event.get("home_score")
+            away_score = event.get("away_score")
+            if live_home is None or live_away is None or home_score is None or away_score is None:
+                continue
+            home, away = live_home, live_away
+        elif match.completed:
+            home_score, away_score = match.home_score, match.away_score
+        else:
+            continue
+        pair = update_rating_pair(home["rating"], away["rating"], home_score, away_score)
+        home["rating"], away["rating"] = pair.home, pair.away
+        completed_groups += 1
+    return teams, completed_groups
+
+
+def _live_team_dicts(
+    db: Session,
+    confirmed_knockouts: dict[int, dict],
+    group_overrides: dict[frozenset[str], dict] | None = None,
+) -> tuple[list[dict], int]:
+    teams, completed_groups = _live_group_state(db, group_overrides or {})
+    by_id = {team["id"]: team for team in teams}
+    by_name = {team["name"]: team for team in teams}
+    for _, event in sorted(confirmed_knockouts.items()):
         if event.get("state") != "post":
             continue
         home = by_name.get(event.get("home"))
         away = by_name.get(event.get("away"))
-        if home is None or away is None:
-            continue
         home_score = event.get("home_score")
         away_score = event.get("away_score")
-        if home_score is None or away_score is None:
+        if home is None or away is None or home_score is None or away_score is None:
             continue
         pair = update_rating_pair(home["rating"], away["rating"], home_score, away_score)
         by_id[home["id"]]["rating"] = pair.home
         by_id[away["id"]]["rating"] = pair.away
-    return teams
+    return teams, completed_groups
 
 
 def recalculate_ratings(db: Session) -> None:
@@ -161,6 +197,7 @@ def live_forecast(
     db: Session,
     confirmed_knockouts: dict[int, dict],
     simulations: int | None = None,
+    group_overrides: dict[frozenset[str], dict] | None = None,
 ) -> dict | None:
     baseline = latest_forecast(db)
     if baseline is None:
@@ -172,24 +209,23 @@ def live_forecast(
         if event.get("state") in {"in", "post"}
     )
     seed = int(hashlib.sha256(f"{baseline.result_fingerprint}:{knockout_fingerprint}".encode()).hexdigest()[:12], 16)
+    live_teams, completed_groups = _live_team_dicts(db, confirmed_knockouts, group_overrides)
     rows = run_tournament_simulation(
-        _live_team_dicts(db, confirmed_knockouts),
+        live_teams,
         match_dicts(db),
         simulations,
         seed,
         confirmed_knockouts=confirmed_knockouts,
     )
     completed_knockouts = sum(1 for event in confirmed_knockouts.values() if event.get("state") == "post")
-    completed_groups = len(list(db.scalars(select(Match).where(Match.completed.is_(True)))))
-    knockouts_started = any(event.get("state") in {"in", "post"} for event in confirmed_knockouts.values())
     return {
         "id": baseline.id,
         "created_at": datetime.now(UTC).isoformat(),
         "simulations": simulations,
         "label": "Live knockout forecast",
-        "completed_results": (max(completed_groups, 72) if knockouts_started else completed_groups) + completed_knockouts,
+        "completed_results": completed_groups + completed_knockouts,
         "data_as_of": datetime.now(UTC).isoformat(),
-        "data_source": "ESPN public scoreboard; stored group-stage baseline",
+        "data_source": "ESPN public scoreboard with stored-result fallback",
         "model_version": MODEL_VERSION,
         "hidden_probability_keys": _hidden_probability_keys(confirmed_knockouts),
         "probabilities": sorted(

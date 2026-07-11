@@ -181,7 +181,7 @@ def test_bracket_uses_live_knockout_forecast_for_favorite_and_timestamp(monkeypa
     }
     monkeypatch.setattr(routes_bracket, "cached_espn_scoreboard", lambda: {"events": [{}]})
     monkeypatch.setattr(routes_bracket, "knockout_match_overrides", lambda scoreboard: {99: {"state": "pre"}})
-    monkeypatch.setattr(routes_bracket, "live_forecast", lambda db, overrides: payload)
+    monkeypatch.setattr(routes_bracket, "live_forecast", lambda db, overrides, **kwargs: payload)
 
     with TestClient(app) as client:
         bracket = client.get("/bracket").json()
