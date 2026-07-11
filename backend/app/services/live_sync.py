@@ -11,7 +11,15 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..models import Match, SyncStatus
 from .accuracy_service import backfill_completed_match_predictions, lock_upcoming_match_predictions
-from .forecast_service import latest_forecast, recalculate_ratings, run_and_store_forecast
+from .bracket_service import bracket_projection
+from .forecast_service import (
+    _live_team_dicts,
+    latest_forecast,
+    live_forecast,
+    recalculate_ratings,
+    run_and_store_forecast,
+)
+from .knockout_predictions import record_canonical_knockout_predictions
 from .knockout_schedule import KNOCKOUT_ESPN_ID_TO_MATCH_NUMBER
 from .model_parameters import MODEL_VERSION
 
@@ -306,8 +314,9 @@ def refresh_live_matches(db: Session, payload: dict | None = None) -> dict:
 
 
 def refresh_live_data(db: Session, simulations: int = 10_000) -> dict:
+    payload = fetch_espn_scoreboard()
     before_fingerprint = result_fingerprint(db)
-    match_summary = refresh_live_matches(db)
+    match_summary = refresh_live_matches(db, payload)
     after_fingerprint = result_fingerprint(db)
     forecast_changed = False
     backfilled_predictions = 0
@@ -332,6 +341,26 @@ def refresh_live_data(db: Session, simulations: int = 10_000) -> dict:
             result_fingerprint=after_fingerprint,
         )
         forecast_changed = True
+
+    group_events = _espn_group_events(payload)
+    knockout_events = knockout_match_overrides(payload)
+    live_snapshot = live_forecast(
+        db,
+        knockout_events,
+        simulations=simulations,
+        group_overrides=group_events,
+    )
+    if live_snapshot is not None:
+        projection = bracket_projection(db, knockout_events, live_snapshot)
+        live_teams, _ = _live_team_dicts(db, knockout_events, group_events)
+        record_canonical_knockout_predictions(
+            db,
+            bracket_projection=projection,
+            knockout_events=knockout_events,
+            live_ratings=live_teams,
+            current_time=datetime.now(UTC),
+            result_fingerprint=after_fingerprint,
+        )
     summary = {
         **match_summary,
         "result_changed": before_fingerprint != after_fingerprint,
