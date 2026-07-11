@@ -37,15 +37,21 @@ class BracketTeam:
     rating: float
 
 
+def _forecast_value(row: object, key: str) -> float:
+    if isinstance(row, dict):
+        return row.get(key, 0)
+    return getattr(row, key, 0)
+
+
 def _team_payload(team: BracketTeam, forecast_by_team: dict[int, object]) -> dict:
     row = forecast_by_team.get(team.id)
     return {
         "team_id": team.id,
         "team": team.name,
         "group": team.group,
-        "champion_probability": row.champion_probability if row else 0,
-        "final_probability": row.final_probability if row else 0,
-        "semifinal_probability": row.semifinal_probability if row else 0,
+        "champion_probability": _forecast_value(row, "champion_probability") if row else 0,
+        "final_probability": _forecast_value(row, "final_probability") if row else 0,
+        "semifinal_probability": _forecast_value(row, "semifinal_probability") if row else 0,
     }
 
 
@@ -144,7 +150,11 @@ def _source_team(
     return team_by_name.get(name, fallback)
 
 
-def bracket_projection(db: Session, confirmed_knockouts: dict[int, dict] | None = None) -> dict:
+def bracket_projection(
+    db: Session,
+    confirmed_knockouts: dict[int, dict] | None = None,
+    live_snapshot: dict | None = None,
+) -> dict:
     forecast = latest_forecast(db)
     if forecast is None:
         return {"forecast": None, "favorite": None, "rounds": []}
@@ -156,7 +166,12 @@ def bracket_projection(db: Session, confirmed_knockouts: dict[int, dict] | None 
     }
     team_by_name = {team.name: team for team in team_by_id.values()}
     confirmed = confirmed_knockouts or {}
-    forecast_by_team = {row.team_id: row for row in forecast.probabilities}
+    if live_snapshot:
+        forecast_rows = live_snapshot["probabilities"]
+        forecast_by_team = {row["team_id"]: row for row in forecast_rows}
+    else:
+        forecast_rows = list(forecast.probabilities)
+        forecast_by_team = {row.team_id: row for row in forecast_rows}
     tables = build_standings(teams, match_dicts(db))
     winners = {group: rows[0].team_id for group, rows in tables.items()}
     runners = {group: rows[1].team_id for group, rows in tables.items()}
@@ -224,16 +239,23 @@ def bracket_projection(db: Session, confirmed_knockouts: dict[int, dict] | None 
 
     _order_rounds_by_path(rounds)
 
-    favorite = max(forecast.probabilities, key=lambda row: row.champion_probability)
-    finalists = sorted(forecast.probabilities, key=lambda row: row.final_probability, reverse=True)[:4]
+    favorite = max(forecast_rows, key=lambda row: _forecast_value(row, "champion_probability"))
+    finalists = sorted(
+        forecast_rows,
+        key=lambda row: _forecast_value(row, "final_probability"),
+        reverse=True,
+    )[:4]
+    favorite_id = favorite["team_id"] if isinstance(favorite, dict) else favorite.team_id
+    finalist_ids = [row["team_id"] if isinstance(row, dict) else row.team_id for row in finalists]
+    forecast_payload = live_snapshot or {
+        "id": forecast.id,
+        "created_at": forecast.created_at.isoformat(),
+        "completed_results": forecast.completed_results,
+        "simulations": forecast.simulations,
+    }
     return {
-        "forecast": {
-            "id": forecast.id,
-            "created_at": forecast.created_at.isoformat(),
-            "completed_results": forecast.completed_results,
-            "simulations": forecast.simulations,
-        },
-        "favorite": _team_payload(team_by_id[favorite.team_id], forecast_by_team),
-        "finalists": [_team_payload(team_by_id[row.team_id], forecast_by_team) for row in finalists],
+        "forecast": {key: forecast_payload[key] for key in ("id", "created_at", "completed_results", "simulations")},
+        "favorite": _team_payload(team_by_id[favorite_id], forecast_by_team),
+        "finalists": [_team_payload(team_by_id[team_id], forecast_by_team) for team_id in finalist_ids],
         "rounds": rounds,
     }

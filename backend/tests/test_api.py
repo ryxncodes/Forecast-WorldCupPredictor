@@ -161,3 +161,36 @@ def test_knockout_penalty_winner_advances_in_matches_and_bracket(monkeypatch):
 
     match_89 = next(match for match in bracket["rounds"][1]["matches"] if match["match_number"] == 89)
     assert "Morocco" in {match_89["home"]["team"], match_89["away"]["team"]}
+
+
+def test_bracket_uses_live_knockout_forecast_for_favorite_and_timestamp(monkeypatch):
+    payload = {
+        "id": 99,
+        "created_at": "2026-07-11T12:00:00+00:00",
+        "completed_results": 98,
+        "simulations": 10_000,
+        "probabilities": [
+            {
+                "team_id": team_id,
+                "champion_probability": 1 if team_id == 31 else 0,
+                "final_probability": 1 if team_id in {31, 33} else 0,
+                "semifinal_probability": 1 if team_id in {31, 33, 38, 46} else 0,
+            }
+            for team_id in range(1, 49)
+        ],
+    }
+    monkeypatch.setattr(routes_bracket, "cached_espn_scoreboard", lambda: {"events": [{}]})
+    monkeypatch.setattr(routes_bracket, "knockout_match_overrides", lambda scoreboard: {99: {"state": "pre"}})
+    monkeypatch.setattr(routes_bracket, "live_forecast", lambda db, overrides: payload)
+
+    with TestClient(app) as client:
+        bracket = client.get("/bracket").json()
+
+    assert bracket["forecast"] == {
+        "id": 99,
+        "created_at": "2026-07-11T12:00:00+00:00",
+        "completed_results": 98,
+        "simulations": 10_000,
+    }
+    assert bracket["favorite"]["team"] == "Spain"
+    assert bracket["favorite"]["champion_probability"] == 1
