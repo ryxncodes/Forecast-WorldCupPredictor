@@ -17,6 +17,14 @@ const columns: { key: ProbabilityKey; label: string; optional?: boolean }[] = [
 ];
 
 const alwaysVisibleColumns = new Set<ProbabilityKey>(["champion_probability"]);
+const eliminatedStageOrder: Record<string, number> = {
+  "Group stage": 0,
+  "Round of 32": 1,
+  "Round of 16": 2,
+  Quarterfinal: 3,
+  Semifinal: 4,
+  Final: 5,
+};
 
 function formatProbability(value: number, eliminated: boolean) {
   const percent = value * 100;
@@ -89,7 +97,11 @@ export function ForecastTable({ forecast, syncStatus }: { forecast: Forecast; sy
     () => [...rows].sort((a, b) => {
       const eliminatedOrder = Number(Boolean(a.eliminated_stage)) - Number(Boolean(b.eliminated_stage));
       if (eliminatedOrder) return eliminatedOrder;
-      if (a.eliminated_stage && b.eliminated_stage) return a.team.localeCompare(b.team);
+      if (a.eliminated_stage && b.eliminated_stage) {
+        const stageOrder = (eliminatedStageOrder[a.eliminated_stage] ?? 99)
+          - (eliminatedStageOrder[b.eliminated_stage] ?? 99);
+        return stageOrder || a.team.localeCompare(b.team);
+      }
       return b[sortKey] - a[sortKey];
     }),
     [rows, sortKey],
@@ -110,7 +122,7 @@ export function ForecastTable({ forecast, syncStatus }: { forecast: Forecast; sy
           })}</tbody>
         </table>
       </div>
-      <div className="table-note"><span>Probabilities are estimated from repeated simulated tournaments. Resolved stage columns are hidden once every team is either through or eliminated from that stage.</span><span>Sorted by {columns.find((column) => column.key === sortKey)?.label} probability.</span></div>
+      <div className="table-note"><span>Probabilities are estimated from repeated simulated tournaments. Resolved stage columns are hidden once every team is either through or eliminated from that stage.</span><span>Active teams are sorted by {columns.find((column) => column.key === sortKey)?.label} probability. Eliminated teams are grouped by exit round.</span></div>
     </section>
   );
 }
