@@ -237,6 +237,37 @@ def bracket_projection(
             matches.append(match)
         rounds.append({"key": round_name, "label": ROUND_LABELS[round_name], "matches": matches})
 
+    semifinal_losers = []
+    for match_number in (101, 102):
+        semifinal = matches_by_number[match_number]
+        winner_id = semifinal["projected_winner"]["team_id"]
+        semifinal_losers.append(
+            semifinal["away"] if semifinal["home"]["team_id"] == winner_id else semifinal["home"]
+        )
+    third_place = _project_match(
+        103,
+        "third_place",
+        _source_team(
+            confirmed,
+            103,
+            "home",
+            team_by_id[semifinal_losers[0]["team_id"]],
+            team_by_name,
+        ),
+        _source_team(
+            confirmed,
+            103,
+            "away",
+            team_by_id[semifinal_losers[1]["team_id"]],
+            team_by_name,
+        ),
+        forecast_by_team,
+        _confirmed_winner_id(confirmed, 103, team_by_name),
+    )
+    third_place["home_source"] = 101
+    third_place["away_source"] = 102
+    third_place.update(_confirmed_result_payload(confirmed.get(103)))
+
     _order_rounds_by_path(rounds)
 
     favorite = max(forecast_rows, key=lambda row: _forecast_value(row, "champion_probability"))
@@ -258,4 +289,5 @@ def bracket_projection(
         "favorite": _team_payload(team_by_id[favorite_id], forecast_by_team),
         "finalists": [_team_payload(team_by_id[team_id], forecast_by_team) for team_id in finalist_ids],
         "rounds": rounds,
+        "third_place": third_place,
     }

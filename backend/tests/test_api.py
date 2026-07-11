@@ -222,3 +222,24 @@ def test_public_knockout_endpoints_share_one_scoreboard_revision(monkeypatch):
     assert calls == 1
     assert dashboard.json()["forecast"]["completed_results"] == forecast.json()["completed_results"]
     assert bracket.json()["forecast"]["completed_results"] == forecast.json()["completed_results"]
+
+
+def test_third_place_match_uses_bracket_projection_participants(monkeypatch):
+    payload = {"events": []}
+    monkeypatch.setattr(routes_matches, "cached_espn_scoreboard", lambda: payload)
+    monkeypatch.setattr(routes_bracket, "cached_espn_scoreboard", lambda: payload)
+    monkeypatch.setattr(routes_matches, "group_match_overrides", lambda scoreboard: {})
+
+    with TestClient(app) as client:
+        matches = client.get("/matches").json()
+        bracket = client.get("/bracket").json()
+
+    third_place = next(match for match in matches if match["match_number"] == 103)
+    projected = bracket["third_place"]
+    assert third_place["stage"] == "third_place"
+    assert (third_place["home_team"], third_place["away_team"]) == (
+        projected["home"]["team"],
+        projected["away"]["team"],
+    )
+    assert projected["home_source"] == 101
+    assert projected["away_source"] == 102

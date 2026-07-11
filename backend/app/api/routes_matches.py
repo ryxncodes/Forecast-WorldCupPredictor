@@ -136,6 +136,8 @@ def _projected_knockout_matches(db: Session, espn_events: dict[int, dict]) -> li
         for round_payload in projection.get("rounds", [])
         for match in round_payload.get("matches", [])
     }
+    if projection.get("third_place"):
+        projected[103] = projection["third_place"]
     teams = _team_lookup(db)
     confirmed_by_match = _confirmed_knockout_team_ids(espn_events, teams)
     confirmed_team_ids = {
@@ -143,19 +145,6 @@ def _projected_knockout_matches(db: Session, espn_events: dict[int, dict]) -> li
         for ids in confirmed_by_match.values()
         for team_id in ids
     }
-
-    if 101 in projected and 102 in projected:
-        semifinal_losers = []
-        for match_number in (101, 102):
-            match = projected[match_number]
-            winner_id = match["projected_winner"]["team_id"]
-            semifinal_losers.append(match["away"] if match["home"]["team_id"] == winner_id else match["home"])
-        projected[103] = {
-            "match_number": 103,
-            "round": "third_place",
-            "home": semifinal_losers[0],
-            "away": semifinal_losers[1],
-        }
 
     matches = []
     for match_number, schedule in KNOCKOUT_SCHEDULE.items():
