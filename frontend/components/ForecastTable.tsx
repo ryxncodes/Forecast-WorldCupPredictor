@@ -18,12 +18,12 @@ const columns: { key: ProbabilityKey; label: string; optional?: boolean }[] = [
 
 const alwaysVisibleColumns = new Set<ProbabilityKey>(["champion_probability"]);
 const eliminatedStageOrder: Record<string, number> = {
-  "Group stage": 0,
-  "Round of 32": 1,
-  "Round of 16": 2,
-  Quarterfinal: 3,
-  Semifinal: 4,
-  Final: 5,
+  Final: 0,
+  Semifinal: 1,
+  Quarterfinal: 2,
+  "Round of 16": 3,
+  "Round of 32": 4,
+  "Group stage": 5,
 };
 
 function formatProbability(value: number, eliminated: boolean) {
