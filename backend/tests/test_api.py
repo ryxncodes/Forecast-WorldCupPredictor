@@ -5,26 +5,18 @@ from app.api import routes_bracket, routes_forecast, routes_matches
 from app.main import app
 
 
-def test_forecast_history_starts_with_explicit_live_projection(monkeypatch):
-    live = {
-        "id": 64,
-        "created_at": "2026-07-13T00:00:00+00:00",
-        "simulations": 10_000,
-        "label": "Live knockout forecast",
-        "completed_results": 100,
-        "data_as_of": "2026-07-13T00:00:00+00:00",
-        "data_source": "test",
-        "model_version": "test",
-        "hidden_probability_keys": [],
-        "probabilities": [],
-    }
-    monkeypatch.setattr(routes_forecast, "cached_espn_scoreboard", lambda: {"events": []})
-    monkeypatch.setattr(routes_forecast, "live_forecast", lambda *args, **kwargs: live)
+def test_forecast_history_reads_persisted_runs_without_live_simulation(monkeypatch):
+    def unexpected_live_simulation(*args, **kwargs):
+        raise AssertionError("history GET must not run tournament simulations")
+
+    monkeypatch.setattr(routes_forecast, "live_forecast", unexpected_live_simulation)
     with TestClient(app) as client:
-        payload = client.get("/forecast/history?limit=1").json()
-    assert payload[0]["completed_results"] == 100
-    assert payload[0]["is_live"] is True
-    assert payload[0]["tournament_revision"].startswith("live-")
+        response = client.get("/forecast/history?limit=1")
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 1
+    assert payload[0]["is_live"] is False
+    assert payload[0]["tournament_revision"].startswith("stored-")
 
 
 def test_dashboard_endpoints_are_public_read_only(monkeypatch):

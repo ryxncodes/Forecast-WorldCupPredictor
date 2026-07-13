@@ -55,9 +55,8 @@ export async function loadDashboard() {
 }
 
 export function loadForecastHistory() {
-  // The group stage has at most 72 completed-match snapshots plus the
-  // pre-tournament baseline, so 100 keeps the full replay without pagination.
-  return request<Forecast[]>("/forecast/history?limit=100");
+  // Baseline + 72 group matches + 32 knockouts, with room for legacy runs.
+  return request<Forecast[]>("/forecast/history?limit=120");
 }
 
 export function loadMatches() {

@@ -17,6 +17,7 @@ from .forecast_service import (
     latest_forecast,
     recalculate_ratings,
     run_and_store_forecast,
+    store_knockout_forecast_history,
 )
 from .knockout_predictions import (
     reconstruct_completed_knockout_predictions,
@@ -347,6 +348,12 @@ def refresh_live_data(db: Session, simulations: int = 10_000) -> dict:
     group_events = _espn_group_events(payload)
     knockout_events = knockout_match_overrides(payload)
     if latest_forecast(db) is not None:
+        store_knockout_forecast_history(
+            db,
+            knockout_events=knockout_events,
+            group_overrides=group_events,
+            simulations=simulations,
+        )
         sync_time = datetime.now(UTC)
         post_group_teams, _ = _live_team_dicts(db, {}, group_events)
         reconstruct_completed_knockout_predictions(

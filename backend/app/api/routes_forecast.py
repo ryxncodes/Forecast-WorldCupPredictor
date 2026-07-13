@@ -54,15 +54,5 @@ def get_latest_forecast(db: Session = Depends(get_db)):
 
 @router.get("/history")
 def get_forecast_history(limit: int = 20, db: Session = Depends(get_db)):
-    safe_limit = min(max(limit, 1), 100)
-    state = knockout_state(cached_espn_scoreboard, knockout_match_overrides)
-    live = live_forecast(
-        db, state.events, group_overrides=group_match_overrides(state.scoreboard or {})
-    )
-    if live is None:
-        return [serialize(run) for run in forecast_history(db, safe_limit)]
-    live_payload = serialize(live)
-    live_payload.setdefault("is_live", True)
-    live_payload.setdefault("tournament_revision", f"live-{live_payload['completed_results']}")
-    stored = [serialize(run) for run in forecast_history(db, max(safe_limit - 1, 0))]
-    return [live_payload, *stored]
+    safe_limit = min(max(limit, 1), 120)
+    return [serialize(run) for run in forecast_history(db, safe_limit)]

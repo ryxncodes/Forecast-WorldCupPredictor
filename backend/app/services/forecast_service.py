@@ -1,5 +1,5 @@
 from dataclasses import asdict
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import hashlib
 
 from sqlalchemy import select
@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 from ..models import ForecastProbability, ForecastRun, Match, Team
 from .ratings import update_rating_pair
 from .model_parameters import MODEL_VERSION
+from .knockout_schedule import KNOCKOUT_SCHEDULE
 from .simulator import ForecastRow, run_tournament_simulation
 
 
@@ -145,6 +146,114 @@ def run_and_store_forecast(
     return latest_forecast(db)
 
 
+def store_knockout_forecast_history(
+    db: Session,
+    *,
+    knockout_events: dict[int, dict],
+    group_overrides: dict[frozenset[str], dict],
+    simulations: int = 10_000,
+    max_new_runs: int = 6,
+) -> dict[str, int]:
+    """Persist one post-result tournament forecast per completed knockout."""
+    completed_events = sorted(
+        (
+            (match_number, event)
+            for match_number, event in knockout_events.items()
+            if match_number in KNOCKOUT_SCHEDULE
+            and event.get("state") == "post"
+            and event.get("home")
+            and event.get("away")
+            and event.get("home_score") is not None
+            and event.get("away_score") is not None
+        ),
+        key=lambda item: (KNOCKOUT_SCHEDULE[item[0]][1], item[0]),
+    )
+    existing_fingerprints = set(db.scalars(
+        select(ForecastRun.result_fingerprint).where(
+            ForecastRun.result_fingerprint.like("knockout-history:%")
+        )
+    ))
+    reserve_current_point = not existing_fingerprints and len(completed_events) > max_new_runs
+    teams, completed_groups = _live_group_state(db, group_overrides)
+    if completed_groups < 72:
+        return {"inserted": 0, "completed_knockouts": len(completed_events)}
+
+    by_name = {team["name"]: team for team in teams}
+    confirmed: dict[int, dict] = {}
+    result_tokens: list[str] = []
+    inserted = 0
+    previous_prefix_fingerprint: str | None = None
+    for index, (match_number, event) in enumerate(completed_events, start=1):
+        home = by_name.get(event["home"])
+        away = by_name.get(event["away"])
+        if home is None or away is None:
+            continue
+        pair = update_rating_pair(
+            home["rating"], away["rating"], event["home_score"], event["away_score"]
+        )
+        home["rating"], away["rating"] = pair.home, pair.away
+        confirmed[match_number] = event
+        result_tokens.append(
+            f"{match_number}:{event['home']}:{event['away']}:{event['home_score']}:{event['away_score']}:{event.get('winner') or ''}"
+        )
+        fingerprint = "knockout-history:" + hashlib.sha256("|".join(result_tokens).encode()).hexdigest()
+        observed_append = (
+            index == len(completed_events)
+            and previous_prefix_fingerprint in existing_fingerprints
+        )
+        previous_prefix_fingerprint = fingerprint
+        if fingerprint in existing_fingerprints:
+            continue
+        if reserve_current_point and index < len(completed_events) and inserted >= max_new_runs - 1:
+            continue
+        if inserted >= max_new_runs:
+            break
+
+        seed = int(hashlib.sha256(fingerprint.encode()).hexdigest()[:12], 16)
+        rows = run_tournament_simulation(
+            teams,
+            match_dicts(db),
+            simulations,
+            seed,
+            confirmed_knockouts=confirmed,
+        )
+        run = ForecastRun(
+            simulations=simulations,
+            label=(
+                f"After match {match_number}: {event['home']} {event['home_score']}–"
+                f"{event['away_score']} {event['away']}"
+            ),
+            completed_results=completed_groups + index,
+            result_fingerprint=fingerprint,
+            # ESPN exposes kickoff but not a final-whistle timestamp. A conservative
+            # three-hour offset avoids claiming the final result was known at kickoff.
+            data_as_of=(
+                datetime.fromisoformat(KNOCKOUT_SCHEDULE[match_number][1].replace("Z", "+00:00"))
+                + timedelta(hours=3)
+            ),
+            data_source=(
+                "ESPN public scoreboard"
+                if observed_append
+                else "Leakage-controlled reconstruction from ESPN results"
+            ),
+            model_version=MODEL_VERSION,
+        )
+        run.probabilities = [
+            ForecastProbability(
+                team_id=row.team_id,
+                **{key: value for key, value in asdict(row).items() if key.endswith("_probability")},
+            )
+            for row in rows
+        ]
+        db.add(run)
+        db.flush()
+        existing_fingerprints.add(fingerprint)
+        inserted += 1
+    if inserted:
+        db.commit()
+    return {"inserted": inserted, "completed_knockouts": len(completed_events)}
+
+
 def _eliminated_stage(row: ForecastRow) -> str | None:
     if row.round_of_32_probability == 0:
         return "Group stage"
@@ -242,7 +351,7 @@ def forecast_history(db: Session, limit: int = 50) -> list[ForecastRun]:
     return list(db.scalars(
         select(ForecastRun)
         .options(selectinload(ForecastRun.probabilities).selectinload(ForecastProbability.team))
-        .order_by(ForecastRun.id.desc())
+        .order_by(ForecastRun.completed_results.desc(), ForecastRun.id.desc())
         .limit(limit)
     ))
 
@@ -251,6 +360,6 @@ def latest_forecast(db: Session) -> ForecastRun | None:
     return db.scalar(
         select(ForecastRun)
         .options(selectinload(ForecastRun.probabilities).selectinload(ForecastProbability.team))
-        .order_by(ForecastRun.id.desc())
+        .order_by(ForecastRun.completed_results.desc(), ForecastRun.id.desc())
         .limit(1)
     )

@@ -1,13 +1,14 @@
 import { HistoryPageClient } from "@/components/HistoryPageClient";
-import { loadCachedForecastHistory } from "@/lib/server-api";
+import { loadCachedForecastHistory, loadCachedMatches } from "@/lib/server-api";
 
 export const dynamic = "force-dynamic";
 
 export default async function HistoryPage() {
   try {
-    return <HistoryPageClient initialRuns={await loadCachedForecastHistory()} />;
+    const [runs, matches] = await Promise.all([loadCachedForecastHistory(), loadCachedMatches()]);
+    return <HistoryPageClient initialRuns={runs} initialMatches={matches} />;
   } catch (caught) {
     const message = caught instanceof Error ? caught.message : "Could not load forecast history";
-    return <HistoryPageClient initialRuns={[]} initialError={message} />;
+    return <HistoryPageClient initialRuns={[]} initialMatches={[]} initialError={message} />;
   }
 }

@@ -12,7 +12,7 @@ export const loadCachedDashboard = loadDashboard;
 
 export const loadCachedThirdPlacePage = loadCachedDashboard;
 
-export const loadCachedForecastHistory = unstable_cache(loadForecastHistory, ["forecast-history-v2"], {
+export const loadCachedForecastHistory = unstable_cache(loadForecastHistory, ["forecast-history-v3"], {
   revalidate: 60,
   tags: ["forecast-history"],
 });
