@@ -204,11 +204,13 @@ table { border-collapse: collapse; width: 100%; }
 .history-chart.dense circle { stroke-width: 2; }
 .history-chart.dense circle:hover, .history-chart.dense circle:focus { stroke-width: 3; }
 .history-y-label { color: var(--muted); font-size: 9px; left: 0; position: absolute; transform: translateY(-50%); }
-.history-tooltip { background: var(--tooltip-bg); border: 1px solid color-mix(in srgb, var(--tooltip-text) 14%, transparent); color: var(--tooltip-text); display: grid; gap: 2px; left: clamp(120px, var(--history-tooltip-left), calc(100% - 120px)); padding: 7px 9px; pointer-events: none; position: absolute; transform: translate(-50%, calc(-100% - 9px)); width: min(240px, calc(100% - 16px)); z-index: 3; }
+.history-tooltip { background: var(--tooltip-bg); border: 1px solid color-mix(in srgb, var(--tooltip-text) 14%, transparent); color: var(--tooltip-text); display: grid; gap: 2px; left: var(--history-tooltip-left); padding: 7px 9px; pointer-events: none; position: absolute; transform: translate(-50%, calc(-100% - 9px)); width: min(220px, calc(100% - 16px)); z-index: 3; }
 .history-tooltip::after { border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid var(--tooltip-bg); bottom: -5px; content: ""; left: 50%; position: absolute; transform: translateX(-50%); }
 .history-tooltip strong { color: var(--tooltip-text); font-size: 13px; }
 .history-tooltip span { color: var(--tooltip-muted); font-size: 9px; line-height: 1.35; overflow-wrap: anywhere; white-space: normal; }
-.history-labels { color: var(--muted); display: flex; font-size: 10px; justify-content: space-between; }
+.history-labels { align-items: start; color: var(--muted); display: grid; font-size: 10px; gap: 8px; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.history-labels span { min-width: 0; overflow-wrap: anywhere; }
+.history-labels span:last-child { text-align: right; }
 .history-labels strong { color: var(--green); }
 .history-snapshots { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); margin-top: 22px; }
 .history-snapshots div { background: var(--surface-subtle); border: 1px solid var(--line); display: grid; gap: 5px; padding: 10px; }
@@ -509,6 +511,10 @@ table { border-collapse: collapse; width: 100%; }
   .history-team-list button.selected { box-shadow: inset 3px 0 var(--green); }
   .history-detail { padding: 15px 12px; }
   .history-detail-heading { align-items: stretch; flex-direction: column; gap: 12px; }
+  .history-tooltip.edge-start { transform: translate(-16px, calc(-100% - 9px)); }
+  .history-tooltip.edge-start::after { left: 16px; }
+  .history-tooltip.edge-end { transform: translate(calc(-100% + 16px), calc(-100% - 9px)); }
+  .history-tooltip.edge-end::after { left: calc(100% - 16px); }
   .page-actions { justify-content: flex-start; margin: 14px 0; }
   .accuracy-scorecards { grid-template-columns: 1fr; }
   .accuracy-distribution.compact { display: block; }

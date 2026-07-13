@@ -17,11 +17,11 @@ type DisplayRun = {
 };
 
 const STAGE_LABELS: Record<string, string> = {
-  round_of_32: "Round of 32",
-  round_of_16: "Round of 16",
-  quarterfinal: "Quarterfinal",
-  semifinal: "Semifinal",
-  third_place: "Third place",
+  round_of_32: "R32",
+  round_of_16: "R16",
+  quarterfinal: "QF",
+  semifinal: "SF",
+  third_place: "3rd",
   final: "Final",
 };
 
@@ -53,9 +53,8 @@ function teamMilestones(
     if (!target) continue;
     const run = runsByProgress.find((candidate) => candidate.completed_results >= target);
     if (!run) continue;
-    const stage = match.stage === "group" ? `Matchday ${groupMatchday}` : (STAGE_LABELS[match.stage] ?? match.stage);
-    const reconstructed = run.data_source.toLowerCase().includes("reconstruction") ? " · reconstructed" : "";
-    points.push({ run, label: `${stage}: ${match.home_team} ${match.home_score}–${match.away_score} ${match.away_team}${reconstructed}` });
+    const stage = match.stage === "group" ? `MD${groupMatchday}` : (STAGE_LABELS[match.stage] ?? match.stage);
+    points.push({ run, label: `${stage} · ${match.home_team} ${match.home_score}–${match.away_score} ${match.away_team}` });
   }
   return points;
 }
@@ -86,6 +85,13 @@ export function ForecastHistory({ runs, matches }: { runs: Forecast[]; matches: 
   });
   const line = points.map((point) => `${point.x},${point.y}`).join(" ");
   const denseChart = points.length > 16;
+  const tooltipEdge = hoveredPoint === null
+    ? ""
+    : points[hoveredPoint].x / WIDTH < 0.35
+      ? " edge-start"
+      : points[hoveredPoint].x / WIDTH > 0.65
+        ? " edge-end"
+        : "";
   const selectedName = latest?.probabilities.find((row) => row.team_id === teamId)?.team ?? "Team";
   const countries = useMemo(
     () => [...(latest?.probabilities ?? [])].sort((a, b) => a.team.localeCompare(b.team)),
@@ -130,7 +136,7 @@ export function ForecastHistory({ runs, matches }: { runs: Forecast[]; matches: 
                 <polyline points={line} />
                 {points.map((point, index) => <circle aria-label={`${point.label}: ${(point.probability * 100).toFixed(1)}%`} className="history-point" key={`${point.run.tournament_revision ?? point.run.id}-${index}`} cx={point.x} cy={point.y} r={denseChart ? "3" : "5"} tabIndex={0} onMouseEnter={() => setHoveredPoint(index)} onMouseLeave={() => setHoveredPoint(null)} onFocus={() => setHoveredPoint(index)} onBlur={() => setHoveredPoint(null)} />)}
               </svg>
-              {hoveredPoint !== null ? <div className="history-tooltip" style={{ "--history-tooltip-left": `${(points[hoveredPoint].x / WIDTH) * 100}%`, top: `${(points[hoveredPoint].y / HEIGHT) * 100}%` } as CSSProperties}><strong>{(points[hoveredPoint].probability * 100).toFixed(1)}%</strong><span>{points[hoveredPoint].label}</span></div> : null}
+              {hoveredPoint !== null ? <div className={`history-tooltip${tooltipEdge}`} style={{ "--history-tooltip-left": `${(points[hoveredPoint].x / WIDTH) * 100}%`, top: `${(points[hoveredPoint].y / HEIGHT) * 100}%` } as CSSProperties}><strong>{(points[hoveredPoint].probability * 100).toFixed(1)}%</strong><span>{points[hoveredPoint].label}</span></div> : null}
             </div>
             <div className="history-labels"><span>{points[0]?.label}</span><strong>{Math.round(points.at(-1)!.probability * 100)}% now</strong><span>{points.at(-1)?.label}</span></div>
             <div className={denseChart ? "history-snapshots compact" : "history-snapshots"}>{points.map((point, index) => <div key={`${point.run.id}-${index}`}><span>{point.label}</span><strong>{(point.probability * 100).toFixed(1)}%</strong></div>)}</div>
