@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from ..settings import MATCH_PROBABILITY_MODEL_MODE
 from .forecast_service import latest_forecast, match_dicts, team_dicts
 from .knockout_schedule import (
+    KNOCKOUT_SCHEDULE,
     ROUND_LABELS,
     ROUND_MATCH_NUMBERS,
     THIRD_PLACE_LOSER_SOURCES,
@@ -83,6 +84,7 @@ def _project_match(
     return {
         "match_number": match_number,
         "round": round_name,
+        "kickoff": KNOCKOUT_SCHEDULE[match_number][1],
         "home": _team_payload(home, forecast_by_team),
         "away": _team_payload(away, forecast_by_team),
         "home_expected_goals": home_xg,

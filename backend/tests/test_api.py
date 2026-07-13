@@ -48,6 +48,9 @@ def test_dashboard_endpoints_are_public_read_only(monkeypatch):
             89, 90, 93, 94, 91, 92, 95, 96
         ]
         assert bracket.json()["rounds"][-1]["matches"][0]["match_number"] == 104
+        assert bracket.json()["rounds"][0]["matches"][0]["kickoff"] == "2026-06-28T19:00:00Z"
+        assert bracket.json()["third_place"]["kickoff"] == "2026-07-18T21:00:00Z"
+        assert bracket.json()["rounds"][-1]["matches"][0]["kickoff"] == "2026-07-19T19:00:00Z"
 
         history = client.get("/forecast/history")
         assert history.status_code == 200 and len(history.json()) >= 1

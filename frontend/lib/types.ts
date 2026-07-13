@@ -66,6 +66,7 @@ export type BracketTeam = {
 export type BracketMatch = {
   match_number: number;
   round: string;
+  kickoff: string;
   home: BracketTeam;
   away: BracketTeam;
   home_slot?: string;
