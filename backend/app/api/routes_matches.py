@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..models import Match, Team
 from ..models.database import get_db
-from ..services.bracket_service import bracket_projection
+from ..services.bracket_service import bracket_projection, index_projection_matches
 from ..services.knockout_schedule import KNOCKOUT_SCHEDULE, ROUND_LABELS, knockout_broadcasts
 from ..services.knockout_state import knockout_state
 from ..services.live_sync import cached_espn_scoreboard, group_match_overrides, knockout_match_overrides, result_fingerprint, score_for_event
@@ -131,13 +131,7 @@ def _projected_knockout_matches(db: Session, espn_events: dict[int, dict]) -> li
             return cached_matches
 
     projection = bracket_projection(db, espn_events)
-    projected = {
-        match["match_number"]: match
-        for round_payload in projection.get("rounds", [])
-        for match in round_payload.get("matches", [])
-    }
-    if projection.get("third_place"):
-        projected[103] = projection["third_place"]
+    projected = index_projection_matches(projection)
     teams = _team_lookup(db)
     confirmed_by_match = _confirmed_knockout_team_ids(espn_events, teams)
     confirmed_team_ids = {

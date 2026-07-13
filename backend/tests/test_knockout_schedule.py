@@ -1,3 +1,4 @@
+from app.services.bracket_service import index_projection_matches
 from app.services.knockout_schedule import (
     KNOCKOUT_SCHEDULE,
     ROUND_MATCH_NUMBERS,
@@ -24,3 +25,13 @@ def test_canonical_knockout_graph_is_complete_and_acyclic():
     assert THIRD_PLACE_LOSER_SOURCES == (101, 102)
     assert 103 not in WINNER_SOURCES
     assert WINNER_SOURCES[104] == (101, 102)
+
+
+def test_projection_index_includes_each_knockout_match_once():
+    projection = {
+        "rounds": [{"matches": [{"match_number": number} for number in range(73, 103)] + [{"match_number": 104}]}],
+        "third_place": {"match_number": 103},
+    }
+    indexed = index_projection_matches(projection)
+    assert tuple(sorted(indexed)) == tuple(range(73, 105))
+    assert indexed[103] is projection["third_place"]

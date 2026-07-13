@@ -6,6 +6,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from ..models import KnockoutPredictionSnapshot
+from .bracket_service import index_projection_matches
 from .accuracy_service import _most_likely_score, _selected_outcome
 from .knockout_schedule import KNOCKOUT_SCHEDULE
 from .match_model import expected_goals, outcome_probabilities
@@ -240,14 +241,7 @@ def record_canonical_knockout_predictions(
         if isinstance(live_ratings, dict)
         else {team["name"]: team["rating"] for team in live_ratings}
     )
-    matches = {
-        match["match_number"]: match
-        for round_payload in bracket_projection.get("rounds", [])
-        for match in round_payload.get("matches", [])
-    }
-    third_place = bracket_projection.get("third_place")
-    if third_place:
-        matches[third_place["match_number"]] = third_place
+    matches = index_projection_matches(bracket_projection)
 
     inserted = []
     for match_number, event in sorted(knockout_events.items()):

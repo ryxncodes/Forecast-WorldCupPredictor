@@ -21,6 +21,18 @@ R32_PAIRS = [
     ("1D", "3D"), ("1G", "3G"), ("2K", "2L"), ("1H", "2J"),
     ("1B", "3B"), ("1J", "2H"), ("1K", "3K"), ("2D", "2G"),
 ]
+def index_projection_matches(projection: dict) -> dict[int, dict]:
+    matches = {
+        match["match_number"]: match
+        for round_payload in projection.get("rounds", [])
+        for match in round_payload.get("matches", [])
+    }
+    third_place = projection.get("third_place")
+    if third_place:
+        matches[third_place["match_number"]] = third_place
+    return matches
+
+
 @dataclass(frozen=True)
 class BracketTeam:
     id: int
