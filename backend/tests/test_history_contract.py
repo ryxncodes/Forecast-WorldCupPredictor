@@ -1,8 +1,8 @@
 from sqlalchemy import delete, select
 
-from app.models import ForecastProbability, ForecastRun
+from app.models import ForecastProbability, ForecastRun, Team
 from app.models.database import SessionLocal
-from app.services import live_sync
+from app.services import forecast_service, live_sync
 from app.services.forecast_service import forecast_history, store_knockout_forecast_history
 
 PREFIX = "knockout-history:"
@@ -18,7 +18,17 @@ def clear_history(db):
     db.execute(delete(ForecastRun).where(ForecastRun.result_fingerprint.like(f"{PREFIX}%")))
     db.commit()
 
-def test_bounded_backfill_is_current_aware_reconstructed_and_idempotent():
+
+def completed_group_state(db, _group_overrides):
+    teams = [
+        {"id": team.id, "name": team.name, "code": team.code, "group": team.group, "rating": team.initial_rating}
+        for team in db.scalars(select(Team).order_by(Team.group, Team.name))
+    ]
+    return teams, 72
+
+
+def test_bounded_backfill_is_current_aware_reconstructed_and_idempotent(monkeypatch):
+    monkeypatch.setattr(forecast_service, "_live_group_state", completed_group_state)
     with SessionLocal() as db:
         clear_history(db)
         try:
@@ -62,7 +72,8 @@ def test_protected_sync_persists_knockout_history(monkeypatch):
     assert recorded == [{"knockout_events": {73: event}, "group_overrides": {"group": "events"}, "simulations": 25}]
 
 
-def test_later_result_revision_preserves_earlier_checkpoint_and_supersedes_latest():
+def test_later_result_revision_preserves_earlier_checkpoint_and_supersedes_latest(monkeypatch):
+    monkeypatch.setattr(forecast_service, "_live_group_state", completed_group_state)
     with SessionLocal() as db:
         clear_history(db)
         try:
