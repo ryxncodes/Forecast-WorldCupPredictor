@@ -1,3 +1,6 @@
+from types import MappingProxyType
+
+
 ROUND_LABELS = {
     "round_of_32": "Round of 32",
     "round_of_16": "Round of 16",
@@ -52,6 +55,20 @@ KNOCKOUT_ESPN_ID_TO_MATCH_NUMBER = {
     espn_id: match_number
     for match_number, (*_, espn_id) in KNOCKOUT_SCHEDULE.items()
 }
+
+ROUND_MATCH_NUMBERS = MappingProxyType({
+    round_name: tuple(number for number, schedule in KNOCKOUT_SCHEDULE.items() if schedule[0] == round_name)
+    for round_name in ROUND_LABELS
+})
+
+WINNER_SOURCES = MappingProxyType({
+    89: (73, 75), 90: (76, 77), 91: (74, 78), 92: (79, 80),
+    93: (83, 84), 94: (81, 82), 95: (86, 88), 96: (85, 87),
+    97: (89, 90), 98: (93, 94), 99: (91, 92), 100: (95, 96),
+    101: (97, 98), 102: (99, 100), 104: (101, 102),
+})
+
+THIRD_PLACE_LOSER_SOURCES = (101, 102)
 
 
 def knockout_broadcasts(match_number: int) -> list[str]:

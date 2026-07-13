@@ -4,6 +4,12 @@ from sqlalchemy.orm import Session
 
 from ..settings import MATCH_PROBABILITY_MODEL_MODE
 from .forecast_service import latest_forecast, match_dicts, team_dicts
+from .knockout_schedule import (
+    ROUND_LABELS,
+    ROUND_MATCH_NUMBERS,
+    THIRD_PLACE_LOSER_SOURCES,
+    WINNER_SOURCES,
+)
 from .match_model import match_probabilities
 from .simulator import _third_place_assignments
 from .standings import build_standings, rank_third_place
@@ -15,20 +21,6 @@ R32_PAIRS = [
     ("1D", "3D"), ("1G", "3G"), ("2K", "2L"), ("1H", "2J"),
     ("1B", "3B"), ("1J", "2H"), ("1K", "3K"), ("2D", "2G"),
 ]
-ROUND_SOURCES = {
-    "round_of_16": [(73, 75), (76, 77), (74, 78), (79, 80), (83, 84), (81, 82), (86, 88), (85, 87)],
-    "quarterfinal": [(89, 90), (93, 94), (91, 92), (95, 96)],
-    "semifinal": [(97, 98), (99, 100)],
-    "final": [(101, 102)],
-}
-ROUND_LABELS = {
-    "round_of_16": "Round of 16",
-    "quarterfinal": "Quarterfinal",
-    "semifinal": "Semifinal",
-    "final": "Final",
-}
-
-
 @dataclass(frozen=True)
 class BracketTeam:
     id: int
@@ -205,11 +197,10 @@ def bracket_projection(
         r32.append(match)
     rounds.append({"key": "round_of_32", "label": "Round of 32", "matches": r32})
 
-    for round_name, sources in ROUND_SOURCES.items():
+    for round_name in ("round_of_16", "quarterfinal", "semifinal", "final"):
         matches = []
-        base_number = {"round_of_16": 89, "quarterfinal": 97, "semifinal": 101, "final": 104}[round_name]
-        for index, (home_source, away_source) in enumerate(sources):
-            match_number = base_number + index
+        for match_number in ROUND_MATCH_NUMBERS[round_name]:
+            home_source, away_source = WINNER_SOURCES[match_number]
             match = _project_match(
                 match_number,
                 round_name,
@@ -238,7 +229,7 @@ def bracket_projection(
         rounds.append({"key": round_name, "label": ROUND_LABELS[round_name], "matches": matches})
 
     semifinal_losers = []
-    for match_number in (101, 102):
+    for match_number in THIRD_PLACE_LOSER_SOURCES:
         semifinal = matches_by_number[match_number]
         winner_id = semifinal["projected_winner"]["team_id"]
         semifinal_losers.append(
@@ -264,8 +255,7 @@ def bracket_projection(
         forecast_by_team,
         _confirmed_winner_id(confirmed, 103, team_by_name),
     )
-    third_place["home_source"] = 101
-    third_place["away_source"] = 102
+    third_place["home_source"], third_place["away_source"] = THIRD_PLACE_LOSER_SOURCES
     third_place.update(_confirmed_result_payload(confirmed.get(103)))
 
     _order_rounds_by_path(rounds)

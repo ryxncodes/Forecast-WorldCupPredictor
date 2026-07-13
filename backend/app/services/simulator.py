@@ -5,6 +5,7 @@ from functools import lru_cache
 import random
 
 from ..paths import data_path
+from .knockout_schedule import ROUND_MATCH_NUMBERS, WINNER_SOURCES
 from .match_model import knockout_winner, simulate_score
 from .standings import build_standings, rank_third_place
 
@@ -176,7 +177,6 @@ def run_tournament_simulation(
         for team_id in r32_winners.values():
             counts[team_id]["round_of_16"] += 1
 
-        r16_sources = [(73, 75), (76, 77), (74, 78), (79, 80), (83, 84), (81, 82), (86, 88), (85, 87)]
         r16_numbered_pairs = [
             (match_number, _confirmed_pair(
                 confirmed_knockouts,
@@ -184,13 +184,13 @@ def run_tournament_simulation(
                 match_number,
                 (r32_winners[home_source], r32_winners[away_source]),
             ))
-            for match_number, (home_source, away_source) in zip(range(89, 97), r16_sources)
+            for match_number in ROUND_MATCH_NUMBERS["round_of_16"]
+            for home_source, away_source in (WINNER_SOURCES[match_number],)
         ]
         r16_winners = _play_numbered_pairs(r16_numbered_pairs, ratings, rng, confirmed_knockouts, team_ids)
         for team_id in r16_winners.values():
             counts[team_id]["quarterfinal"] += 1
 
-        qf_sources = [(89, 90), (93, 94), (91, 92), (95, 96)]
         qf_numbered_pairs = [
             (match_number, _confirmed_pair(
                 confirmed_knockouts,
@@ -198,14 +198,14 @@ def run_tournament_simulation(
                 match_number,
                 (r16_winners[home_source], r16_winners[away_source]),
             ))
-            for match_number, (home_source, away_source) in zip(range(97, 101), qf_sources)
+            for match_number in ROUND_MATCH_NUMBERS["quarterfinal"]
+            for home_source, away_source in (WINNER_SOURCES[match_number],)
         ]
         qf_winners = _play_numbered_pairs(qf_numbered_pairs, ratings, rng, confirmed_knockouts, team_ids)
         semifinalists = list(qf_winners.values())
         for team_id in semifinalists:
             counts[team_id]["semifinal"] += 1
 
-        semifinal_sources = [(97, 98), (99, 100)]
         semifinal_pairs = [
             _confirmed_pair(
                 confirmed_knockouts,
@@ -213,16 +213,17 @@ def run_tournament_simulation(
                 match_number,
                 (qf_winners[home_source], qf_winners[away_source]),
             )
-            for match_number, (home_source, away_source) in zip(range(101, 103), semifinal_sources)
+            for match_number in ROUND_MATCH_NUMBERS["semifinal"]
+            for home_source, away_source in (WINNER_SOURCES[match_number],)
         ]
         semifinal_winners = _play_numbered_pairs(
-            list(zip(range(101, 103), semifinal_pairs)),
+            list(zip(ROUND_MATCH_NUMBERS["semifinal"], semifinal_pairs)),
             ratings,
             rng,
             confirmed_knockouts,
             team_ids,
         )
-        finalists = [semifinal_winners[101], semifinal_winners[102]]
+        finalists = [semifinal_winners[source] for source in WINNER_SOURCES[104]]
         for team_id in finalists:
             counts[team_id]["final"] += 1
         final_pair = _confirmed_pair(confirmed_knockouts, team_ids, 104, (finalists[0], finalists[1]))
