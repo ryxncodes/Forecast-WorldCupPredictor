@@ -102,7 +102,7 @@ export function MatchList({ matches }: Props) {
 
   return (
     <section id="matches" className="matches-section" aria-labelledby="matches-heading">
-      <div className="matches-title"><h2 id="matches-heading">Tournament matches</h2><div className="match-filters" aria-label="Filter matches">{(["all", "live", "upcoming", "completed"] as const).map((value) => <button className={filter === value ? "active" : ""} type="button" key={value} onClick={() => { setAutoFilter(false); setFilter(value); }}>{value[0].toUpperCase() + value.slice(1)}</button>)}</div></div>
+      <div className="matches-title"><h2 id="matches-heading">Tournament matches</h2><div className="match-filters" aria-label="Filter matches">{(["all", "live", "upcoming", "completed"] as const).map((value) => <button aria-pressed={filter === value} className={filter === value ? "active" : ""} type="button" key={value} onClick={() => { setAutoFilter(false); setFilter(value); }}>{value[0].toUpperCase() + value.slice(1)}</button>)}</div></div>
       <div className="match-list">
         {!groupedMatches.length ? <p className="match-empty-state">No {filter === "all" ? "" : filter} matches to show right now.</p> : null}
         {groupedMatches.map((group) => <div className="match-day-group" key={group.key}>

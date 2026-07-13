@@ -37,7 +37,7 @@ export function HomePageClient({ initialForecast, initialStandings, initialSyncS
 
   return (
     <>
-      <Header simulations={forecast?.simulations ?? 10_000} />
+      <Header simulations={forecast?.simulations} />
       <main id="top">
         {error ? <div className="error-banner" role="alert"><strong>Something went wrong.</strong> {error} <button onClick={refresh}>Try again</button></div> : null}
         {!forecast || !standings ? <div className="loading-state"><span className="spinner spinning" /><p>Loading the tournament…</p></div> : null}

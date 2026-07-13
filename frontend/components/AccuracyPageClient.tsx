@@ -99,7 +99,7 @@ export function AccuracyPageClient({ initialReport, initialError = null }: Props
           <div className="page-actions">
             <button className="secondary-button" type="button" onClick={refresh} disabled={loading}><RefreshCwIcon className={loading ? "spinning" : ""} />Refresh</button>
           </div>
-          {error ? <div className="error-banner">{error}</div> : null}
+          {error ? <div className="error-banner" role="alert">{error}</div> : null}
           {report ? <>
             <div className="accuracy-scorecards">
               <div><span>Top-pick result accuracy</span><strong>{scoredPercent(report.pick_accuracy, report.scored_matches)}</strong><small>{report.picked_correct}/{report.scored_matches} correct</small></div>

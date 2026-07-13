@@ -26,19 +26,18 @@ const eliminatedStageOrder: Record<string, number> = {
   "Group stage": 5,
 };
 
-function formatProbability(value: number, eliminated: boolean) {
+function formatProbability(value: number) {
   const percent = value * 100;
-  if (eliminated) return "0%";
   if (percent === 0) return "<0.01%";
   if (percent < 1) return `${percent.toFixed(2)}%`;
   if (percent < 10) return `${percent.toFixed(1)}%`;
   return `${Math.round(percent)}%`;
 }
 
-function ProbabilityCell({ value, eliminated }: { value: number; eliminated: boolean }) {
+function ProbabilityCell({ value }: { value: number }) {
   const percent = value * 100;
   const width = Math.max(0, Math.min(100, percent));
-  return <div className="probability-cell" title={`${percent.toFixed(2)}%`}><span>{formatProbability(value, eliminated)}</span><span className="probability-track"><span style={{ width: `${width}%` }} /></span></div>;
+  return <div className="probability-cell" title={`${percent.toFixed(2)}%`}><span>{formatProbability(value)}</span><span className="probability-track"><span style={{ width: `${width}%` }} /></span></div>;
 }
 
 function resolvedProbability(value: number) {
@@ -115,10 +114,10 @@ export function ForecastTable({ forecast, syncStatus }: { forecast: Forecast; sy
       </div>
       <div className="table-scroll">
         <table className="forecast-table">
-          <thead><tr><th className="rank-column">#</th><th>Team</th><th>Group</th>{visibleColumns.map((column) => <th className={column.optional ? "optional-column" : ""} key={column.key}><button className={sortKey === column.key ? "sort-button selected" : "sort-button"} type="button" onClick={() => setSortKey(column.key)}>{column.label}<SortIcon /></button></th>)}</tr></thead>
+          <thead><tr><th className="rank-column">#</th><th>Team</th><th>Group</th>{visibleColumns.map((column) => <th aria-sort={sortKey === column.key ? "descending" : "none"} className={column.optional ? "optional-column" : ""} key={column.key}><button className={sortKey === column.key ? "sort-button selected" : "sort-button"} type="button" onClick={() => setSortKey(column.key)}>{column.label}<SortIcon /></button></th>)}</tr></thead>
           <tbody>{sortedRows.map((row, index) => {
             const eliminated = Boolean(row.eliminated_stage);
-            return <tr className={eliminated ? `eliminated${eliminatedClass(row.eliminated_stage)}` : ""} key={row.team_id}><td className="rank-column">{index + 1}</td><th scope="row">{row.team}{eliminated ? <span className="eliminated-badge">{row.eliminated_stage}</span> : null}</th><td className="group-cell">{row.group}</td>{visibleColumns.map((column) => <td className={column.optional ? "optional-column" : ""} key={column.key}><ProbabilityCell value={row[column.key]} eliminated={eliminated} /></td>)}</tr>;
+            return <tr className={eliminated ? `eliminated${eliminatedClass(row.eliminated_stage)}` : ""} key={row.team_id}><td className="rank-column">{index + 1}</td><th scope="row">{row.team}{eliminated ? <span className="eliminated-badge">{row.eliminated_stage}</span> : null}</th><td className="group-cell">{row.group}</td>{visibleColumns.map((column) => <td className={column.optional ? "optional-column" : ""} key={column.key}><ProbabilityCell value={row[column.key]} /></td>)}</tr>;
           })}</tbody>
         </table>
       </div>

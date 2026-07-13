@@ -60,11 +60,18 @@ export function Header({ simulations }: Props) {
 
   useEffect(() => {
     document.body.classList.toggle("mobile-nav-open", menuOpen);
-    return () => document.body.classList.remove("mobile-nav-open");
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    if (menuOpen) document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.classList.remove("mobile-nav-open");
+      document.removeEventListener("keydown", closeOnEscape);
+    };
   }, [menuOpen]);
 
   const renderNavItems = () => navLinks.map((link) => (
-    <Link className={pathname === link.href ? "active" : ""} href={link.href} key={link.href} onClick={() => setMenuOpen(false)}>
+    <Link aria-current={pathname === link.href ? "page" : undefined} className={pathname === link.href ? "active" : ""} href={link.href} key={link.href} onClick={() => setMenuOpen(false)}>
       {link.label}
     </Link>
   ));
@@ -79,13 +86,13 @@ export function Header({ simulations }: Props) {
         <ThemeToggle />
       </div>
       {menuOpen ? <button className="mobile-drawer-backdrop" type="button" aria-label="Dismiss navigation menu" onClick={() => setMenuOpen(false)} /> : null}
-      <aside className={menuOpen ? "mobile-drawer open" : "mobile-drawer"} id="mobile-navigation" aria-hidden={!menuOpen}>
+      {menuOpen ? <aside className="mobile-drawer open" id="mobile-navigation">
         <div className="mobile-drawer-heading">
           <span>Navigation</span>
           <button type="button" aria-label="Close navigation menu" onClick={() => setMenuOpen(false)}><XIcon /></button>
         </div>
         <nav aria-label="Mobile dashboard sections">{renderNavItems()}</nav>
-      </aside>
+      </aside> : null}
     </header>
   );
 }

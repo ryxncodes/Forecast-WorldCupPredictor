@@ -18,9 +18,13 @@ export function formatDateTimeET(value: string) {
 
 export function formatLongDateTimeET(value: string) {
   return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
     timeZone: easternTimeZone,
+    timeZoneName: "short",
   }).format(parseApiDate(value));
 }
 

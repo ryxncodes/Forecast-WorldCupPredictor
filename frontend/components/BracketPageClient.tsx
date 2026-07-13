@@ -64,7 +64,7 @@ export function BracketPageClient({ initialBracket, initialError = null }: Props
 
   return (
     <>
-      <Header simulations={bracket?.forecast.simulations ?? 10_000} />
+      <Header simulations={bracket?.forecast.simulations} />
       <main id="top">
         {error ? <div className="error-banner" role="alert"><strong>Something went wrong.</strong> {error} <button onClick={refresh}>Try again</button></div> : null}
         {!bracket ? <div className="loading-state"><span className="spinner spinning" /><p>Loading the bracket…</p></div> : null}
@@ -95,7 +95,7 @@ export function BracketPageClient({ initialBracket, initialError = null }: Props
               <div><span>Model note</span><small>Dates and kickoff times use FIFA's published match schedule and are shown in Eastern Time. Probabilities show the model edge to advance from each matchup.</small></div>
             </aside>
           </div>
-          <p className="bracket-footnote">Dates and kickoff times shown in ET from FIFA's published match schedule. Probabilities show the model edge to advance from that matchup.</p>
+
         </section> : null}
       </main>
     </>
