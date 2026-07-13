@@ -204,10 +204,10 @@ table { border-collapse: collapse; width: 100%; }
 .history-chart.dense circle { stroke-width: 2; }
 .history-chart.dense circle:hover, .history-chart.dense circle:focus { stroke-width: 3; }
 .history-y-label { color: var(--muted); font-size: 9px; left: 0; position: absolute; transform: translateY(-50%); }
-.history-tooltip { background: var(--tooltip-bg); border: 1px solid color-mix(in srgb, var(--tooltip-text) 14%, transparent); color: var(--tooltip-text); display: grid; gap: 2px; max-width: 185px; padding: 7px 9px; pointer-events: none; position: absolute; transform: translate(-50%, calc(-100% - 9px)); z-index: 3; }
+.history-tooltip { background: var(--tooltip-bg); border: 1px solid color-mix(in srgb, var(--tooltip-text) 14%, transparent); color: var(--tooltip-text); display: grid; gap: 2px; left: clamp(120px, var(--history-tooltip-left), calc(100% - 120px)); padding: 7px 9px; pointer-events: none; position: absolute; transform: translate(-50%, calc(-100% - 9px)); width: min(240px, calc(100% - 16px)); z-index: 3; }
 .history-tooltip::after { border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid var(--tooltip-bg); bottom: -5px; content: ""; left: 50%; position: absolute; transform: translateX(-50%); }
 .history-tooltip strong { color: var(--tooltip-text); font-size: 13px; }
-.history-tooltip span { color: var(--tooltip-muted); font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-tooltip span { color: var(--tooltip-muted); font-size: 9px; line-height: 1.35; overflow-wrap: anywhere; white-space: normal; }
 .history-labels { color: var(--muted); display: flex; font-size: 10px; justify-content: space-between; }
 .history-labels strong { color: var(--green); }
 .history-snapshots { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); margin-top: 22px; }

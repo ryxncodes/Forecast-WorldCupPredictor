@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import type { Forecast, Match, ProbabilityKey } from "@/lib/types";
 
 const WIDTH = 700;
@@ -129,7 +130,7 @@ export function ForecastHistory({ runs, matches }: { runs: Forecast[]; matches: 
                 <polyline points={line} />
                 {points.map((point, index) => <circle aria-label={`${point.label}: ${(point.probability * 100).toFixed(1)}%`} className="history-point" key={`${point.run.tournament_revision ?? point.run.id}-${index}`} cx={point.x} cy={point.y} r={denseChart ? "3" : "5"} tabIndex={0} onMouseEnter={() => setHoveredPoint(index)} onMouseLeave={() => setHoveredPoint(null)} onFocus={() => setHoveredPoint(index)} onBlur={() => setHoveredPoint(null)} />)}
               </svg>
-              {hoveredPoint !== null ? <div className="history-tooltip" style={{ left: `${(points[hoveredPoint].x / WIDTH) * 100}%`, top: `${(points[hoveredPoint].y / HEIGHT) * 100}%` }}><strong>{(points[hoveredPoint].probability * 100).toFixed(1)}%</strong><span>{points[hoveredPoint].label}</span></div> : null}
+              {hoveredPoint !== null ? <div className="history-tooltip" style={{ "--history-tooltip-left": `${(points[hoveredPoint].x / WIDTH) * 100}%`, top: `${(points[hoveredPoint].y / HEIGHT) * 100}%` } as CSSProperties}><strong>{(points[hoveredPoint].probability * 100).toFixed(1)}%</strong><span>{points[hoveredPoint].label}</span></div> : null}
             </div>
             <div className="history-labels"><span>{points[0]?.label}</span><strong>{Math.round(points.at(-1)!.probability * 100)}% now</strong><span>{points.at(-1)?.label}</span></div>
             <div className={denseChart ? "history-snapshots compact" : "history-snapshots"}>{points.map((point, index) => <div key={`${point.run.id}-${index}`}><span>{point.label}</span><strong>{(point.probability * 100).toFixed(1)}%</strong></div>)}</div>
