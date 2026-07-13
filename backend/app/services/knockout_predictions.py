@@ -1,4 +1,5 @@
-from datetime import datetime
+from collections import defaultdict
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -8,6 +9,63 @@ from .accuracy_service import _most_likely_score, _selected_outcome
 from .knockout_schedule import KNOCKOUT_SCHEDULE
 from .match_model import expected_goals, outcome_probabilities
 from .model_parameters import MODEL_VERSION
+
+
+def _naive_utc(value: datetime) -> datetime:
+    return value.replace(tzinfo=None) if value.tzinfo else value
+
+
+def knockout_prediction_inventory(db: Session, now: datetime | None = None) -> dict:
+    """Return the latest eligible revision and provenance for each knockout match."""
+    now = _naive_utc(now or datetime.now(UTC))
+    revisions_by_match = defaultdict(list)
+    for snapshot in db.scalars(
+        select(KnockoutPredictionSnapshot).order_by(
+            KnockoutPredictionSnapshot.match_number,
+            KnockoutPredictionSnapshot.generated_at,
+            KnockoutPredictionSnapshot.id,
+        )
+    ):
+        revisions_by_match[snapshot.match_number].append(snapshot)
+
+    matches = []
+    for match_number, revisions in sorted(revisions_by_match.items()):
+        eligible = [
+            snapshot for snapshot in revisions
+            if _naive_utc(snapshot.generated_at) <= _naive_utc(snapshot.kickoff)
+        ]
+        if not eligible:
+            continue
+        snapshot = eligible[-1]
+        kickoff = _naive_utc(snapshot.kickoff)
+        matches.append({
+            "snapshot_id": snapshot.id,
+            "match_number": match_number,
+            "kickoff": snapshot.kickoff.isoformat(),
+            "generated_at": snapshot.generated_at.isoformat(),
+            "prediction_status": "frozen" if now >= kickoff else "updating",
+            "source": snapshot.source,
+            "model_version": snapshot.model_version,
+            "input_fingerprint": snapshot.input_fingerprint,
+            "revision_count": len(eligible),
+            "home_team": snapshot.home_team,
+            "away_team": snapshot.away_team,
+            "home_team_rating": snapshot.home_team_rating,
+            "away_team_rating": snapshot.away_team_rating,
+            "home_expected_goals": snapshot.home_expected_goals,
+            "away_expected_goals": snapshot.away_expected_goals,
+            "home_win_probability": snapshot.home_win_probability,
+            "draw_probability": snapshot.draw_probability,
+            "away_win_probability": snapshot.away_win_probability,
+            "predicted_outcome": snapshot.predicted_outcome,
+            "predicted_home_score": snapshot.predicted_home_score,
+            "predicted_away_score": snapshot.predicted_away_score,
+        })
+    return {
+        "matches_with_predictions": len(matches),
+        "total_revisions": sum(len(rows) for rows in revisions_by_match.values()),
+        "matches": matches,
+    }
 
 
 def latest_eligible_prediction(

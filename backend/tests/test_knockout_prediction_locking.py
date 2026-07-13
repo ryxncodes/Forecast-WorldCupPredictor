@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from app.models import KnockoutPredictionSnapshot
 from app.models.database import Base
 from app.services.knockout_predictions import (
+    knockout_prediction_inventory,
     record_canonical_knockout_predictions,
     record_knockout_prediction,
 )
@@ -74,3 +75,26 @@ def test_canonical_recorder_appends_only_confirmed_future_matchups():
     assert len(inserted) == 1
     assert repeated == []
     assert inserted[0].source == "live"
+
+
+def test_inventory_selects_latest_pre_kickoff_revision_and_marks_it_frozen():
+    Session = session_factory()
+    kickoff = datetime(2026, 7, 14, 19, 0, tzinfo=UTC)
+    with Session() as db:
+        record_knockout_prediction(
+            db, match_number=101, kickoff=kickoff, home_team="Spain", away_team="France",
+            home_rating=2100, away_rating=2050, input_fingerprint="first",
+            generated_at=kickoff - timedelta(days=1),
+        )
+        latest = record_knockout_prediction(
+            db, match_number=101, kickoff=kickoff, home_team="Spain", away_team="France",
+            home_rating=2120, away_rating=2060, input_fingerprint="latest",
+            generated_at=kickoff - timedelta(hours=1),
+        )
+        inventory = knockout_prediction_inventory(db, now=kickoff + timedelta(minutes=1))
+
+    assert inventory["matches_with_predictions"] == 1
+    assert inventory["total_revisions"] == 2
+    assert inventory["matches"][0]["snapshot_id"] == latest.id
+    assert inventory["matches"][0]["prediction_status"] == "frozen"
+    assert inventory["matches"][0]["source"] == "live"
