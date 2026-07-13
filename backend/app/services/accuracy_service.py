@@ -64,7 +64,7 @@ def _selected_outcome(probabilities: dict[str, float]) -> str:
 def _as_naive_utc(value: datetime | None) -> datetime | None:
     if value is None:
         return None
-    return value.replace(tzinfo=None) if value.tzinfo else value
+    return value.astimezone(UTC).replace(tzinfo=None) if value.tzinfo else value
 
 
 def _snapshot_for_match(
@@ -228,7 +228,11 @@ def model_accuracy(db: Session) -> dict:
     ) or 0
     matches = db.scalars(
         select(Match)
-        .options(joinedload(Match.home_team), joinedload(Match.away_team))
+        .options(
+            joinedload(Match.home_team),
+            joinedload(Match.away_team),
+            joinedload(Match.prediction_snapshot),
+        )
         .join(MatchPredictionSnapshot, MatchPredictionSnapshot.match_id == Match.id)
         .where(Match.completed.is_(True), Match.home_score.is_not(None), Match.away_score.is_not(None))
         .order_by(Match.kickoff.desc(), Match.id.desc())

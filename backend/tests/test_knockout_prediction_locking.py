@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from app.models import KnockoutPredictionSnapshot
 from app.models.database import Base
 from app.services.knockout_predictions import (
+    _naive_utc,
     knockout_prediction_inventory,
     reconstruct_completed_knockout_predictions,
     record_canonical_knockout_predictions,
@@ -43,6 +44,11 @@ def test_prediction_revises_before_kickoff_and_freezes_after_kickoff():
     assert first.id != revised.id
     assert frozen.id == revised.id
     assert count == 2
+
+
+def test_prediction_compares_aware_offsets_as_utc_instants():
+    generated = datetime(2026, 7, 14, 21, 0, tzinfo=timezone(timedelta(hours=2)))
+    assert _naive_utc(generated) == datetime(2026, 7, 14, 19, 0)
 
 
 def test_canonical_recorder_appends_only_confirmed_future_matchups():

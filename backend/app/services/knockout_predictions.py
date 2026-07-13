@@ -15,7 +15,7 @@ from .ratings import update_rating_pair
 
 
 def _naive_utc(value: datetime) -> datetime:
-    return value.replace(tzinfo=None) if value.tzinfo else value
+    return value.astimezone(UTC).replace(tzinfo=None) if value.tzinfo else value
 
 
 def knockout_prediction_inventory(db: Session, now: datetime | None = None) -> dict:
