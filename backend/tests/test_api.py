@@ -1,8 +1,30 @@
 from fastapi.testclient import TestClient
 import pytest
 
-from app.api import routes_bracket, routes_matches
+from app.api import routes_bracket, routes_forecast, routes_matches
 from app.main import app
+
+
+def test_forecast_history_starts_with_explicit_live_projection(monkeypatch):
+    live = {
+        "id": 64,
+        "created_at": "2026-07-13T00:00:00+00:00",
+        "simulations": 10_000,
+        "label": "Live knockout forecast",
+        "completed_results": 100,
+        "data_as_of": "2026-07-13T00:00:00+00:00",
+        "data_source": "test",
+        "model_version": "test",
+        "hidden_probability_keys": [],
+        "probabilities": [],
+    }
+    monkeypatch.setattr(routes_forecast, "cached_espn_scoreboard", lambda: {"events": []})
+    monkeypatch.setattr(routes_forecast, "live_forecast", lambda *args, **kwargs: live)
+    with TestClient(app) as client:
+        payload = client.get("/forecast/history?limit=1").json()
+    assert payload[0]["completed_results"] == 100
+    assert payload[0]["is_live"] is True
+    assert payload[0]["tournament_revision"].startswith("live-")
 
 
 def test_dashboard_endpoints_are_public_read_only(monkeypatch):

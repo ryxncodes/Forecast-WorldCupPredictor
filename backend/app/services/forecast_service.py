@@ -220,6 +220,8 @@ def live_forecast(
     completed_knockouts = sum(1 for event in confirmed_knockouts.values() if event.get("state") == "post")
     return {
         "id": baseline.id,
+        "is_live": True,
+        "tournament_revision": f"live-{hashlib.sha256(knockout_fingerprint.encode()).hexdigest()[:12]}",
         "created_at": datetime.now(UTC).isoformat(),
         "simulations": simulations,
         "label": "Live knockout forecast",

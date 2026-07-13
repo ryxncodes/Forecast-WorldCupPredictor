@@ -29,6 +29,8 @@ export type ForecastRow = {
 
 export type Forecast = {
   id: number;
+  is_live?: boolean;
+  tournament_revision?: string;
   created_at: string;
   simulations: number;
   label: string;

@@ -16,7 +16,7 @@ type DisplayRun = {
 };
 
 function pluralizeMatch(count: number) {
-  return `${count} group ${count === 1 ? "match" : "matches"}`;
+  return `${count} ${count === 1 ? "match" : "matches"}`;
 }
 
 function milestoneLabel(run: Forecast) {
@@ -24,7 +24,8 @@ function milestoneLabel(run: Forecast) {
   if (run.completed_results <= 24) return `After matchday 1 (${run.completed_results}/24 matches)`;
   if (run.completed_results <= 48) return `After matchday 2 (${run.completed_results}/48 matches)`;
   if (run.completed_results < 72) return `Matchday 3 so far (${run.completed_results}/72 matches)`;
-  return "After group stage (72 matches)";
+  if (run.completed_results === 72) return "After group stage (72 matches)";
+  return `After ${run.completed_results} matches`;
 }
 
 function groupedMilestones(orderedRuns: Forecast[]): DisplayRun[] {
@@ -42,8 +43,8 @@ function groupedMilestones(orderedRuns: Forecast[]): DisplayRun[] {
     lastAtOrBefore(48),
     latest,
   ].filter(Boolean) as Forecast[];
-  const unique = new Map<number, DisplayRun>();
-  for (const run of candidates) unique.set(run.id, { run, label: milestoneLabel(run) });
+  const unique = new Map<string | number, DisplayRun>();
+  for (const run of candidates) unique.set(run.tournament_revision ?? String(run.id), { run, label: milestoneLabel(run) });
   return [...unique.values()];
 }
 
@@ -91,7 +92,7 @@ export function ForecastHistory({ runs }: { runs: Forecast[] }) {
   return (
     <section id="history" className="history-section" aria-labelledby="history-heading">
       <div className="history-heading">
-        <div><h1 id="history-heading">Prediction history</h1><p>Snapshots are stored after completed results. The chart defaults to matchday milestones so the trend stays readable; switch to every update for the full replay.</p></div>
+        <div><h1 id="history-heading">Prediction history</h1><p>Stored group-stage snapshots are shown with the current live knockout projection. The chart defaults to milestones so the trend stays readable; switch to every update for the full replay.</p></div>
       </div>
       <div className="history-workspace">
         <aside className="history-team-panel" aria-label="Choose a country">
@@ -99,7 +100,7 @@ export function ForecastHistory({ runs }: { runs: Forecast[] }) {
           <div className="history-team-list">{countries.map((row) => {
             const eliminated = row.advance_probability === 0;
             const classes = [row.team_id === teamId ? "selected" : "", eliminated ? "eliminated" : ""].filter(Boolean).join(" ");
-            return <button className={classes} type="button" key={row.team_id} onClick={() => setTeamId(row.team_id)}><span>{row.team}</span><small>{eliminated ? "Out" : `${Math.round(row[metric] * 100)}%`}</small></button>;
+            return <button aria-pressed={row.team_id === teamId} className={classes} type="button" key={row.team_id} onClick={() => setTeamId(row.team_id)}><span>{row.team}</span><small>{eliminated ? "Out" : `${Math.round(row[metric] * 100)}%`}</small></button>;
           })}</div>
         </aside>
         <div className="history-detail">
@@ -123,7 +124,7 @@ export function ForecastHistory({ runs }: { runs: Forecast[] }) {
                 })}
                 <line className="history-axis-line" x1={AXIS_LEFT} y1={PLOT_TOP} x2={AXIS_LEFT} y2={HEIGHT - PLOT_BOTTOM} />
                 <polyline points={line} />
-                {points.map((point, index) => <circle aria-label={`${point.label}: ${(point.probability * 100).toFixed(1)}%`} className="history-point" key={point.run.id} cx={point.x} cy={point.y} r={denseChart ? "3" : "5"} tabIndex={0} onMouseEnter={() => setHoveredPoint(index)} onMouseLeave={() => setHoveredPoint(null)} onFocus={() => setHoveredPoint(index)} onBlur={() => setHoveredPoint(null)} />)}
+                {points.map((point, index) => <circle aria-label={`${point.label}: ${(point.probability * 100).toFixed(1)}%`} className="history-point" key={point.run.tournament_revision ?? point.run.id} cx={point.x} cy={point.y} r={denseChart ? "3" : "5"} tabIndex={0} onMouseEnter={() => setHoveredPoint(index)} onMouseLeave={() => setHoveredPoint(null)} onFocus={() => setHoveredPoint(index)} onBlur={() => setHoveredPoint(null)} />)}
               </svg>
               {hoveredPoint !== null ? <div className="history-tooltip" style={{ left: `${(points[hoveredPoint].x / WIDTH) * 100}%`, top: `${(points[hoveredPoint].y / HEIGHT) * 100}%` }}><strong>{(points[hoveredPoint].probability * 100).toFixed(1)}%</strong><span>{points[hoveredPoint].label}</span></div> : null}
             </div>
