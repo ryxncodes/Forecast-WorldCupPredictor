@@ -514,7 +514,7 @@ table { border-collapse: collapse; width: 100%; }
   .history-tooltip.edge-start { transform: translate(-16px, calc(-100% - 9px)); }
   .history-tooltip.edge-start::after { left: 16px; }
   .history-tooltip.edge-end { transform: translate(calc(-100% + 16px), calc(-100% - 9px)); }
-  .history-tooltip.edge-end::after { left: calc(100% - 16px); }
+  .history-tooltip.edge-end::after { left: calc(100% - 14px); }
   .page-actions { justify-content: flex-start; margin: 14px 0; }
   .accuracy-scorecards { grid-template-columns: 1fr; }
   .accuracy-distribution.compact { display: block; }
