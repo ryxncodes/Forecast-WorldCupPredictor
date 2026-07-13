@@ -15,7 +15,6 @@ from .bracket_service import bracket_projection
 from .forecast_service import (
     _live_team_dicts,
     latest_forecast,
-    live_forecast,
     recalculate_ratings,
     run_and_store_forecast,
 )
@@ -344,14 +343,8 @@ def refresh_live_data(db: Session, simulations: int = 10_000) -> dict:
 
     group_events = _espn_group_events(payload)
     knockout_events = knockout_match_overrides(payload)
-    live_snapshot = live_forecast(
-        db,
-        knockout_events,
-        simulations=simulations,
-        group_overrides=group_events,
-    )
-    if live_snapshot is not None:
-        projection = bracket_projection(db, knockout_events, live_snapshot)
+    if latest_forecast(db) is not None:
+        projection = bracket_projection(db, knockout_events)
         live_teams, _ = _live_team_dicts(db, knockout_events, group_events)
         record_canonical_knockout_predictions(
             db,
