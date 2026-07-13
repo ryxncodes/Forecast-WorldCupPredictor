@@ -18,7 +18,10 @@ from .forecast_service import (
     recalculate_ratings,
     run_and_store_forecast,
 )
-from .knockout_predictions import record_canonical_knockout_predictions
+from .knockout_predictions import (
+    reconstruct_completed_knockout_predictions,
+    record_canonical_knockout_predictions,
+)
 from .knockout_schedule import KNOCKOUT_ESPN_ID_TO_MATCH_NUMBER
 from .model_parameters import MODEL_VERSION
 
@@ -344,6 +347,14 @@ def refresh_live_data(db: Session, simulations: int = 10_000) -> dict:
     group_events = _espn_group_events(payload)
     knockout_events = knockout_match_overrides(payload)
     if latest_forecast(db) is not None:
+        sync_time = datetime.now(UTC)
+        post_group_teams, _ = _live_team_dicts(db, {}, group_events)
+        reconstruct_completed_knockout_predictions(
+            db,
+            knockout_events=knockout_events,
+            post_group_ratings={team["name"]: team["rating"] for team in post_group_teams},
+            reconstructed_at=sync_time,
+        )
         projection = bracket_projection(db, knockout_events)
         live_teams, _ = _live_team_dicts(db, knockout_events, group_events)
         record_canonical_knockout_predictions(
@@ -351,7 +362,7 @@ def refresh_live_data(db: Session, simulations: int = 10_000) -> dict:
             bracket_projection=projection,
             knockout_events=knockout_events,
             live_ratings=live_teams,
-            current_time=datetime.now(UTC),
+            current_time=sync_time,
             result_fingerprint=after_fingerprint,
         )
     summary = {

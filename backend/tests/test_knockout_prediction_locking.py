@@ -7,6 +7,7 @@ from app.models import KnockoutPredictionSnapshot
 from app.models.database import Base
 from app.services.knockout_predictions import (
     knockout_prediction_inventory,
+    reconstruct_completed_knockout_predictions,
     record_canonical_knockout_predictions,
     record_knockout_prediction,
 )
@@ -98,3 +99,46 @@ def test_inventory_selects_latest_pre_kickoff_revision_and_marks_it_frozen():
     assert inventory["matches"][0]["snapshot_id"] == latest.id
     assert inventory["matches"][0]["prediction_status"] == "frozen"
     assert inventory["matches"][0]["source"] == "live"
+
+
+def test_reconstruction_replays_prior_results_without_replacing_live_snapshot():
+    Session = session_factory()
+    reconstructed_at = datetime(2026, 7, 13, 12, 0, tzinfo=UTC)
+    events = {
+        73: {"home": "Spain", "away": "France", "home_score": 2, "away_score": 0, "state": "post"},
+        74: {"home": "Spain", "away": "Brazil", "home_score": 1, "away_score": 0, "state": "post"},
+    }
+    with Session() as db:
+        live = record_knockout_prediction(
+            db,
+            match_number=74,
+            kickoff=datetime(2026, 6, 29, 17, 0, tzinfo=UTC),
+            home_team="Spain",
+            away_team="Brazil",
+            home_rating=2100,
+            away_rating=2050,
+            input_fingerprint="genuine-live",
+            generated_at=datetime(2026, 6, 29, 16, 0, tzinfo=UTC),
+        )
+        inserted = reconstruct_completed_knockout_predictions(
+            db,
+            knockout_events=events,
+            post_group_ratings={"Spain": 2100, "France": 2050, "Brazil": 2040},
+            reconstructed_at=reconstructed_at,
+        )
+        repeated = reconstruct_completed_knockout_predictions(
+            db,
+            knockout_events=events,
+            post_group_ratings={"Spain": 2100, "France": 2050, "Brazil": 2040},
+            reconstructed_at=reconstructed_at + timedelta(minutes=1),
+        )
+        inventory = knockout_prediction_inventory(db, now=reconstructed_at)
+
+    assert [snapshot.match_number for snapshot in inserted] == [73]
+    assert inserted[0].source == "reconstructed"
+    assert inserted[0].generated_at == reconstructed_at
+    assert inserted[0].home_team_rating == 2100
+    assert repeated == []
+    by_number = {match["match_number"]: match for match in inventory["matches"]}
+    assert by_number[73]["source"] == "reconstructed"
+    assert by_number[74]["snapshot_id"] == live.id

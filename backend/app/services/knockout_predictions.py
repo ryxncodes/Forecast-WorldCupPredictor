@@ -1,7 +1,8 @@
 from collections import defaultdict
 from datetime import UTC, datetime
+import hashlib
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from ..models import KnockoutPredictionSnapshot
@@ -9,6 +10,7 @@ from .accuracy_service import _most_likely_score, _selected_outcome
 from .knockout_schedule import KNOCKOUT_SCHEDULE
 from .match_model import expected_goals, outcome_probabilities
 from .model_parameters import MODEL_VERSION
+from .ratings import update_rating_pair
 
 
 def _naive_utc(value: datetime) -> datetime:
@@ -32,7 +34,8 @@ def knockout_prediction_inventory(db: Session, now: datetime | None = None) -> d
     for match_number, revisions in sorted(revisions_by_match.items()):
         eligible = [
             snapshot for snapshot in revisions
-            if _naive_utc(snapshot.generated_at) <= _naive_utc(snapshot.kickoff)
+            if snapshot.source == "reconstructed"
+            or _naive_utc(snapshot.generated_at) <= _naive_utc(snapshot.kickoff)
         ]
         if not eligible:
             continue
@@ -77,7 +80,10 @@ def latest_eligible_prediction(
         select(KnockoutPredictionSnapshot)
         .where(
             KnockoutPredictionSnapshot.match_number == match_number,
-            KnockoutPredictionSnapshot.generated_at <= kickoff,
+            or_(
+                KnockoutPredictionSnapshot.generated_at <= kickoff,
+                KnockoutPredictionSnapshot.source == "reconstructed",
+            ),
         )
         .order_by(KnockoutPredictionSnapshot.generated_at.desc(), KnockoutPredictionSnapshot.id.desc())
         .limit(1)
@@ -139,6 +145,84 @@ def record_knockout_prediction(
     db.add(snapshot)
     db.commit()
     return snapshot
+
+
+def reconstruct_completed_knockout_predictions(
+    db: Session,
+    *,
+    knockout_events: dict[int, dict],
+    post_group_ratings: dict[str, float],
+    reconstructed_at: datetime,
+) -> list[KnockoutPredictionSnapshot]:
+    """Replay completed knockouts chronologically and fill each missing pick once."""
+    ratings = dict(post_group_ratings)
+    prior_results = []
+    inserted = []
+    ordered_events = sorted(
+        (
+            (match_number, event)
+            for match_number, event in knockout_events.items()
+            if match_number in KNOCKOUT_SCHEDULE and event.get("state") == "post"
+        ),
+        key=lambda item: (KNOCKOUT_SCHEDULE[item[0]][1], item[0]),
+    )
+    for match_number, event in ordered_events:
+        home = event.get("home")
+        away = event.get("away")
+        home_score = event.get("home_score")
+        away_score = event.get("away_score")
+        if (
+            not home or not away
+            or home not in ratings or away not in ratings
+            or home_score is None or away_score is None
+        ):
+            continue
+
+        existing = db.scalar(
+            select(KnockoutPredictionSnapshot)
+            .where(KnockoutPredictionSnapshot.match_number == match_number)
+            .limit(1)
+        )
+        if existing is None:
+            home_xg, away_xg = expected_goals(ratings[home], ratings[away])
+            home_win, draw, away_win = outcome_probabilities(home_xg, away_xg)
+            probabilities = {"home": home_win, "draw": draw, "away": away_win}
+            score_pick = _most_likely_score(home_xg, away_xg)
+            cutoff = KNOCKOUT_SCHEDULE[match_number][1]
+            fingerprint = hashlib.sha256(
+                f"reconstructed:{cutoff}:{'|'.join(prior_results)}".encode()
+            ).hexdigest()
+            snapshot = KnockoutPredictionSnapshot(
+                match_number=match_number,
+                kickoff=datetime.fromisoformat(cutoff.replace("Z", "+00:00")),
+                generated_at=reconstructed_at,
+                source="reconstructed",
+                input_fingerprint=fingerprint,
+                model_version=MODEL_VERSION,
+                home_team=home,
+                away_team=away,
+                home_team_rating=ratings[home],
+                away_team_rating=ratings[away],
+                home_expected_goals=home_xg,
+                away_expected_goals=away_xg,
+                home_win_probability=home_win,
+                draw_probability=draw,
+                away_win_probability=away_win,
+                predicted_outcome=_selected_outcome(probabilities),
+                predicted_home_score=score_pick.home_goals,
+                predicted_away_score=score_pick.away_goals,
+                predicted_score_probability=score_pick.probability,
+            )
+            db.add(snapshot)
+            inserted.append(snapshot)
+
+        pair = update_rating_pair(ratings[home], ratings[away], home_score, away_score)
+        ratings[home], ratings[away] = pair.home, pair.away
+        prior_results.append(f"{match_number}:{home}:{home_score}:{away_score}:{away}")
+
+    if inserted:
+        db.commit()
+    return inserted
 
 
 def record_canonical_knockout_predictions(
