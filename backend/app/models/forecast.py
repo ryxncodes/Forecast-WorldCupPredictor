@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey
+from sqlalchemy import DateTime, ForeignKey, Index, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -8,6 +8,16 @@ from .database import Base
 
 class ForecastRun(Base):
     __tablename__ = "forecast_runs"
+    __table_args__ = (
+        Index(
+            "uq_forecast_runs_result_model",
+            "result_fingerprint",
+            "model_version",
+            unique=True,
+            postgresql_where=text("result_fingerprint <> ''"),
+            sqlite_where=text("result_fingerprint <> ''"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))

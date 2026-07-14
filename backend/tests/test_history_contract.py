@@ -53,6 +53,7 @@ def test_protected_sync_persists_knockout_history(monkeypatch):
     class FakeDb:
         def add(self, value): pass
         def commit(self): pass
+        def rollback(self): pass
     previous = type("Previous", (), {"result_fingerprint": "same", "model_version": live_sync.MODEL_VERSION})()
     summary = {"matched_matches": 72, "changed_matches": 0, "completed_matches": 72, "live_matches": 0}
     event = EVENTS[73]
@@ -61,6 +62,7 @@ def test_protected_sync_persists_knockout_history(monkeypatch):
     monkeypatch.setattr(live_sync, "result_fingerprint", lambda db: "same")
     monkeypatch.setattr(live_sync, "refresh_live_matches", lambda db, payload: summary)
     monkeypatch.setattr(live_sync, "latest_forecast", lambda db: previous)
+    monkeypatch.setattr(live_sync, "forecast_revision_exists", lambda db, fingerprint: True)
     monkeypatch.setattr(live_sync, "_espn_group_events", lambda payload: {"group": "events"})
     monkeypatch.setattr(live_sync, "knockout_match_overrides", lambda payload: {73: event})
     monkeypatch.setattr(live_sync, "store_knockout_forecast_history", lambda db, **kwargs: recorded.append(kwargs) or {"inserted": 1})

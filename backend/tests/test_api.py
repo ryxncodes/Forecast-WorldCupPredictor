@@ -1,8 +1,120 @@
+from contextlib import contextmanager
+
 from fastapi.testclient import TestClient
 import pytest
 
 from app.api import routes_bracket, routes_forecast, routes_matches
+from app import main as main_module
 from app.main import app
+from app.services.live_sync import skipped_sync_summary
+
+
+def test_cron_sync_preserves_structured_skip_status(monkeypatch):
+    monkeypatch.setattr(main_module, "valid_cron_authorization", lambda value: True)
+    monkeypatch.setattr(main_module, "refresh_live_data", lambda db: skipped_sync_summary())
+
+    result = main_module.cron_sync("Bearer test")
+
+    assert result["status"] == "skipped"
+    assert result["sync_skipped"] is True
+    assert result["forecast_changed"] is False
+
+
+def test_manual_sync_preserves_structured_skip_status(monkeypatch):
+    monkeypatch.syspath_prepend(str(main_module.PROJECT_DIR))
+    from scripts import sync_live_data
+
+    monkeypatch.setattr(main_module, "ADMIN_SYNC_ENABLED", True)
+    monkeypatch.setattr(main_module, "valid_sync_token", lambda value: True)
+    monkeypatch.setattr(sync_live_data, "refresh_files", lambda: None)
+    monkeypatch.setattr(sync_live_data, "sync_database", lambda: skipped_sync_summary())
+
+    result = main_module.admin_sync("test")
+
+    assert result["status"] == "skipped"
+    assert result["sync_skipped"] is True
+    assert result["forecast_changed"] is False
+
+
+def test_standalone_sync_locks_schema_and_seed_on_one_connection(monkeypatch):
+    monkeypatch.syspath_prepend(str(main_module.PROJECT_DIR))
+    from scripts import sync_live_data
+
+    events = []
+
+    class FakeConnection:
+        def __enter__(self):
+            events.append("connection_enter")
+            return self
+
+        def __exit__(self, *args):
+            events.append("connection_exit")
+
+        def commit(self):
+            events.append("connection_commit")
+
+    connection = FakeConnection()
+
+    class FakeEngine:
+        def connect(self):
+            events.append("engine_connect")
+            return connection
+
+    class FakeSession:
+        def __init__(self, *, bind=None):
+            assert bind is None or bind is connection
+            self.kind = "init" if bind is connection else "sync"
+
+        def __enter__(self):
+            events.append(f"{self.kind}_session_enter")
+            return self
+
+        def __exit__(self, *args):
+            events.append(f"{self.kind}_session_exit")
+
+        def commit(self):
+            events.append(f"{self.kind}_session_commit")
+
+    @contextmanager
+    def locked(resource):
+        assert resource is connection
+        events.append("startup_lock_enter")
+        yield
+        events.append("startup_lock_exit")
+
+    def create_schema(bind):
+        assert bind is connection
+        events.append("create_schema")
+
+    monkeypatch.setattr(sync_live_data.database, "engine", FakeEngine())
+    monkeypatch.setattr(sync_live_data.database, "SessionLocal", FakeSession)
+    monkeypatch.setattr(sync_live_data.database.Base.metadata, "create_all", create_schema)
+    monkeypatch.setattr(sync_live_data, "startup_lock", locked, raising=False)
+    monkeypatch.setattr(sync_live_data, "seed_database", lambda db: events.append("seed"))
+    monkeypatch.setattr(
+        sync_live_data,
+        "refresh_live_data",
+        lambda db, simulations: events.append("refresh") or skipped_sync_summary(),
+    )
+
+    sync_live_data.sync_database(simulations=5)
+
+    assert events == [
+        "engine_connect",
+        "connection_enter",
+        "startup_lock_enter",
+        "init_session_enter",
+        "create_schema",
+        "connection_commit",
+        "seed",
+        "init_session_commit",
+        "init_session_exit",
+        "startup_lock_exit",
+        "connection_exit",
+        "sync_session_enter",
+        "refresh",
+        "sync_session_exit",
+    ]
 
 
 def test_forecast_history_reads_persisted_runs_without_live_simulation(monkeypatch):

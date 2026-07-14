@@ -14,31 +14,36 @@ from .settings import ADMIN_SYNC_ENABLED, CORS_ORIGINS, valid_cron_authorization
 from .seed_data import seed_database
 from .services.accuracy_service import backfill_completed_match_predictions, lock_upcoming_match_predictions
 from .services.forecast_service import latest_forecast, recalculate_ratings, run_and_store_forecast
-from .services.live_sync import refresh_live_data
+from .services.live_sync import refresh_live_data, startup_lock
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    database.Base.metadata.create_all(bind=database.engine)
-    with database.SessionLocal() as db:
-        seed_database(db)
-        if latest_forecast(db) is None:
-            recalculate_ratings(db)
-            backfill_completed_match_predictions(db)
-            lock_upcoming_match_predictions(db)
-            metadata = json.loads(data_path("source_snapshot.json").read_text())
-            data_as_of = datetime.fromisoformat(
-                metadata["latest_completed_kickoff"].replace("Z", "+00:00")
-            )
-            run_and_store_forecast(
-                db,
-                simulations=10_000,
-                seed=2026,
-                label=f"After {metadata['completed_results']} group matches",
-                data_as_of=data_as_of,
-                data_source="ESPN public scoreboard",
-                result_fingerprint=metadata["result_fingerprint"],
-            )
+    with database.engine.connect() as connection:
+        with startup_lock(connection):
+            with database.SessionLocal(bind=connection) as db:
+                database.Base.metadata.create_all(bind=connection)
+                connection.commit()
+                seed_database(db)
+                db.commit()
+                if latest_forecast(db) is None:
+                    recalculate_ratings(db)
+                    backfill_completed_match_predictions(db)
+                    lock_upcoming_match_predictions(db)
+                    metadata = json.loads(data_path("source_snapshot.json").read_text())
+                    data_as_of = datetime.fromisoformat(
+                        metadata["latest_completed_kickoff"].replace("Z", "+00:00")
+                    )
+                    run_and_store_forecast(
+                        db,
+                        simulations=10_000,
+                        seed=2026,
+                        label=f"After {metadata['completed_results']} group matches",
+                        data_as_of=data_as_of,
+                        data_source="ESPN public scoreboard",
+                        result_fingerprint=metadata["result_fingerprint"],
+                    )
+                    db.commit()
     yield
 
 
@@ -94,8 +99,8 @@ def admin_sync(x_sync_token: str | None = Header(default=None)):
     from scripts.sync_live_data import refresh_files, sync_database
 
     refresh_files()
-    changed = sync_database()
-    return {"status": "ok", "forecast_changed": changed}
+    summary = sync_database()
+    return {"status": "skipped" if summary.get("sync_skipped") else "ok", **summary}
 
 
 @app.get("/admin/cron/sync", include_in_schema=False)
@@ -104,4 +109,4 @@ def cron_sync(authorization: str | None = Header(default=None)):
         raise HTTPException(status_code=401, detail="Invalid cron authorization")
     with database.SessionLocal() as db:
         summary = refresh_live_data(db)
-    return {"status": "ok", **summary}
+    return {"status": "skipped" if summary.get("sync_skipped") else "ok", **summary}

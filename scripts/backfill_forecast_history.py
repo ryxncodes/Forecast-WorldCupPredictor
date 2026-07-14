@@ -74,6 +74,7 @@ def backfill(simulations: int = 10_000) -> None:
                 match.completed = originally_completed[match.id]
             db.commit()
             recalculate_ratings(db)
+            db.commit()
 
 
 if __name__ == "__main__":

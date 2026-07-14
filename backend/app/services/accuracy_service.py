@@ -96,7 +96,7 @@ def _snapshot_for_match(
 
 
 def lock_upcoming_match_predictions(db: Session, now: datetime | None = None) -> int:
-    """Store immutable predictions for the next scheduled kickoff batch."""
+    """Stage immutable picks for the next kickoff batch; the caller commits."""
     now = now or datetime.now(UTC)
     comparison_now = now.replace(tzinfo=None) if now.tzinfo else now
     existing_match_ids = select(MatchPredictionSnapshot.match_id)
@@ -125,12 +125,12 @@ def lock_upcoming_match_predictions(db: Session, now: datetime | None = None) ->
     if not snapshots:
         return 0
     db.add_all(snapshots)
-    db.commit()
+    db.flush()
     return len(snapshots)
 
 
 def backfill_completed_match_predictions(db: Session, now: datetime | None = None) -> int:
-    """Materialize old replayed predictions once, without filling missed future locks."""
+    """Stage old replayed picks without filling missed locks; the caller commits."""
     now = now or datetime.now(UTC)
     existing_snapshots = {
         snapshot.match_id: snapshot
@@ -188,7 +188,7 @@ def backfill_completed_match_predictions(db: Session, now: datetime | None = Non
     if not snapshots:
         return 0
     db.add_all(snapshots)
-    db.commit()
+    db.flush()
     return len(snapshots)
 
 

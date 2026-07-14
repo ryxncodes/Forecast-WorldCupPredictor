@@ -104,7 +104,7 @@ def record_knockout_prediction(
     generated_at: datetime,
     source: str = "live",
 ) -> KnockoutPredictionSnapshot | None:
-    """Append a changed pre-kickoff prediction; return the frozen pick afterward."""
+    """Stage a changed pre-kickoff pick; return the frozen pick afterward."""
     frozen = latest_eligible_prediction(db, match_number, kickoff)
     if generated_at >= kickoff:
         return frozen
@@ -144,7 +144,7 @@ def record_knockout_prediction(
         predicted_score_probability=score_pick.probability,
     )
     db.add(snapshot)
-    db.commit()
+    db.flush()
     return snapshot
 
 
@@ -155,7 +155,7 @@ def reconstruct_completed_knockout_predictions(
     post_group_ratings: dict[str, float],
     reconstructed_at: datetime,
 ) -> list[KnockoutPredictionSnapshot]:
-    """Replay completed knockouts chronologically and fill each missing pick once."""
+    """Stage missing replayed picks chronologically; the caller commits."""
     ratings = dict(post_group_ratings)
     prior_results = []
     inserted = []
@@ -222,7 +222,7 @@ def reconstruct_completed_knockout_predictions(
         prior_results.append(f"{match_number}:{home}:{home_score}:{away_score}:{away}")
 
     if inserted:
-        db.commit()
+        db.flush()
     return inserted
 
 

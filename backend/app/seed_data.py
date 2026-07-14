@@ -1,19 +1,49 @@
 import csv
 from datetime import datetime
 
-from sqlalchemy import inspect, text
+from sqlalchemy import delete, inspect, text
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from sqlalchemy.schema import CreateIndex
 
 from .paths import data_path
-from .models import Match, Team
+from .models import ForecastProbability, ForecastRun, Match, Team
 
 
 def ensure_schema(db: Session) -> None:
     """Apply tiny additive migrations for the local learning app."""
-    columns = {column["name"] for column in inspect(db.bind).get_columns("matches")}
+    inspector = inspect(db.connection())
+    columns = {column["name"] for column in inspector.get_columns("matches")}
     if "details_json" not in columns:
         db.execute(text("ALTER TABLE matches ADD COLUMN details_json TEXT DEFAULT '{}' NOT NULL"))
+        db.commit()
+    inspector = inspect(db.connection())
+    forecast_indexes = {index["name"] for index in inspector.get_indexes("forecast_runs")}
+    if "uq_forecast_runs_result_model" not in forecast_indexes:
+        redundant_run_ids = db.scalars(text("""
+            SELECT older.id
+            FROM forecast_runs AS older
+            WHERE older.result_fingerprint <> ''
+              AND EXISTS (
+                  SELECT 1
+                  FROM forecast_runs AS newer
+                  WHERE newer.result_fingerprint = older.result_fingerprint
+                    AND newer.model_version = older.model_version
+                    AND newer.id > older.id
+              )
+        """)).all()
+        if redundant_run_ids:
+            db.execute(delete(ForecastProbability).where(
+                ForecastProbability.run_id.in_(redundant_run_ids)
+            ))
+            db.execute(delete(ForecastRun).where(ForecastRun.id.in_(redundant_run_ids)))
+            db.flush()
+        unique_index = next(
+            index
+            for index in ForecastRun.__table__.indexes
+            if index.name == "uq_forecast_runs_result_model"
+        )
+        db.execute(CreateIndex(unique_index, if_not_exists=True))
         db.commit()
 
 

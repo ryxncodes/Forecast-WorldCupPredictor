@@ -26,6 +26,7 @@ def bootstrap(simulations: int, backfill_history: bool) -> None:
     with database.SessionLocal() as db:
         seed_database(db)
         recalculate_ratings(db)
+        db.commit()
 
     if backfill_history:
         from scripts.backfill_forecast_history import backfill
@@ -51,6 +52,7 @@ def bootstrap(simulations: int, backfill_history: bool) -> None:
             data_source="ESPN public scoreboard",
             result_fingerprint=metadata["result_fingerprint"],
         )
+        db.commit()
         print("Stored initial forecast snapshot")
 
 

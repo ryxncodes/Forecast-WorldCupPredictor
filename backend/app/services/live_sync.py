@@ -1,15 +1,19 @@
+from contextlib import contextmanager
 from datetime import UTC, datetime
+import fcntl
 import hashlib
 import json
 import os
+import tempfile
+from threading import Lock
 from time import monotonic
 
 import httpx
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session, joinedload
 
-from ..models import Match, SyncStatus
+from ..models import ForecastRun, Match, SyncStatus
 from .accuracy_service import backfill_completed_match_predictions, lock_upcoming_match_predictions
 from .bracket_service import bracket_projection
 from .forecast_service import (
@@ -35,6 +39,12 @@ LIVE_SCOREBOARD_TTL_SECONDS = 60
 ESPN_SCOREBOARD_TIMEOUT_SECONDS = float(os.getenv("ESPN_SCOREBOARD_TIMEOUT_SECONDS", "3"))
 _LIVE_SCOREBOARD_CACHE: tuple[float, dict[frozenset[str], dict]] | None = None
 _LIVE_SCOREBOARD_PAYLOAD_CACHE: tuple[float, dict] | None = None
+_PROCESS_SYNC_LOCK = Lock()
+SYNC_LOCK_KEY = int.from_bytes(
+    hashlib.sha256(b"world-cup-predictor-live-sync").digest()[:8],
+    "big",
+    signed=True,
+)
 
 CANONICAL_NAMES = {
     "Bosnia-Herzegovina": "Bosnia and Herzegovina",
@@ -260,6 +270,83 @@ def result_fingerprint(db: Session) -> str:
     ).encode()).hexdigest()
 
 
+@contextmanager
+def _sqlite_file_lock(bind, *, blocking: bool):
+    url = bind.url if hasattr(bind, "url") else bind.engine.url
+    database_path = url.database
+    if not database_path or database_path == ":memory:":
+        yield None
+        return
+    database_id = os.path.abspath(database_path).encode()
+    lock_name = hashlib.sha256(database_id).hexdigest()[:16]
+    lock_path = os.path.join(tempfile.gettempdir(), f"world-cup-sync-{lock_name}.lock")
+    lock_file = open(lock_path, "a+")
+    acquired = False
+    try:
+        operation = fcntl.LOCK_EX if blocking else fcntl.LOCK_EX | fcntl.LOCK_NB
+        try:
+            fcntl.flock(lock_file.fileno(), operation)
+            acquired = True
+        except BlockingIOError:
+            pass
+        yield acquired
+    finally:
+        if acquired:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+        lock_file.close()
+
+
+@contextmanager
+def sync_lock(db: Session):
+    """Try to serialize sync mutations without waiting for another run."""
+    bind = db.get_bind() if hasattr(db, "get_bind") else None
+    if bind is not None and bind.dialect.name == "postgresql":
+        acquired = bool(db.scalar(
+            text("SELECT pg_try_advisory_xact_lock(:key)"),
+            {"key": SYNC_LOCK_KEY},
+        ))
+        yield acquired
+        return
+
+    if bind is not None and bind.dialect.name == "sqlite":
+        with _sqlite_file_lock(bind, blocking=False) as acquired:
+            if acquired is not None:
+                yield acquired
+                return
+
+    acquired = _PROCESS_SYNC_LOCK.acquire(blocking=False)
+    try:
+        yield acquired
+    finally:
+        if acquired:
+            _PROCESS_SYNC_LOCK.release()
+
+
+@contextmanager
+def startup_lock(connection):
+    """Block startup until this process exclusively owns initialization."""
+    if connection.dialect.name == "postgresql":
+        connection.execute(text("SELECT pg_advisory_lock(:key)"), {"key": SYNC_LOCK_KEY})
+        connection.commit()
+        try:
+            yield
+        finally:
+            if connection.in_transaction():
+                connection.rollback()
+            connection.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": SYNC_LOCK_KEY})
+            connection.commit()
+        return
+
+    if connection.dialect.name == "sqlite":
+        with _sqlite_file_lock(connection, blocking=True) as acquired:
+            if acquired is not None:
+                yield
+                return
+
+    with _PROCESS_SYNC_LOCK:
+        yield
+
+
 def latest_completed_kickoff(db: Session) -> datetime | None:
     completed = db.scalars(
         select(Match)
@@ -307,7 +394,7 @@ def refresh_live_matches(db: Session, payload: dict | None = None) -> dict:
             for key, value in next_values.items():
                 setattr(match, key, value)
     if changed:
-        db.commit()
+        db.flush()
     return {
         "matched_matches": matched,
         "changed_matches": changed,
@@ -316,20 +403,25 @@ def refresh_live_matches(db: Session, payload: dict | None = None) -> dict:
     }
 
 
-def refresh_live_data(db: Session, simulations: int = 10_000) -> dict:
-    payload = fetch_espn_scoreboard()
+def forecast_revision_exists(db: Session, result_fingerprint: str) -> bool:
+    return db.scalar(
+        select(ForecastRun.id)
+        .where(
+            ForecastRun.result_fingerprint == result_fingerprint,
+            ForecastRun.model_version == MODEL_VERSION,
+        )
+        .limit(1)
+    ) is not None
+
+
+def _refresh_live_data(db: Session, payload: dict, simulations: int) -> dict:
     before_fingerprint = result_fingerprint(db)
     match_summary = refresh_live_matches(db, payload)
     after_fingerprint = result_fingerprint(db)
     forecast_changed = False
     backfilled_predictions = 0
     locked_predictions = 0
-    previous = latest_forecast(db)
-    if (
-        previous is None
-        or previous.result_fingerprint != after_fingerprint
-        or previous.model_version != MODEL_VERSION
-    ):
+    if not forecast_revision_exists(db, after_fingerprint):
         recalculate_ratings(db)
         backfilled_predictions = backfill_completed_match_predictions(db)
         locked_predictions = lock_upcoming_match_predictions(db)
@@ -380,5 +472,39 @@ def refresh_live_data(db: Session, simulations: int = 10_000) -> dict:
         "locked_predictions": locked_predictions,
     }
     db.add(SyncStatus(status="ok", **summary))
-    db.commit()
     return summary
+
+
+def skipped_sync_summary() -> dict:
+    return {
+        "matched_matches": 0,
+        "changed_matches": 0,
+        "completed_matches": 0,
+        "live_matches": 0,
+        "result_changed": False,
+        "forecast_changed": False,
+        "backfilled_predictions": 0,
+        "locked_predictions": 0,
+        "sync_skipped": True,
+        "skip_reason": "already_running",
+    }
+
+
+def refresh_live_data(db: Session, simulations: int = 10_000) -> dict:
+    """Run one atomic sync using a dedicated clean session.
+
+    This function owns the unit of work: it commits on success and rolls back on
+    overlap or failure. Callers must not pass a session with unrelated pending work.
+    """
+    payload = fetch_espn_scoreboard()
+    with sync_lock(db) as acquired:
+        if not acquired:
+            db.rollback()
+            return skipped_sync_summary()
+        try:
+            summary = _refresh_live_data(db, payload, simulations)
+            db.commit()
+            return summary
+        except Exception:
+            db.rollback()
+            raise

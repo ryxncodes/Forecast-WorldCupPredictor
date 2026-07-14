@@ -93,7 +93,7 @@ def _live_team_dicts(
 
 
 def recalculate_ratings(db: Session) -> None:
-    """Replay completed results so editing an old score stays deterministic."""
+    """Replay completed results; stage changes for the caller to commit."""
     teams = {team.id: team for team in db.scalars(select(Team))}
     for team in teams.values():
         team.rating = team.initial_rating
@@ -107,7 +107,7 @@ def recalculate_ratings(db: Session) -> None:
         )
         teams[match.home_team_id].rating = pair.home
         teams[match.away_team_id].rating = pair.away
-    db.commit()
+    db.flush()
 
 
 def run_and_store_forecast(
@@ -120,6 +120,7 @@ def run_and_store_forecast(
     data_source: str = "Local result edit",
     result_fingerprint: str | None = None,
 ) -> ForecastRun:
+    """Run and stage a forecast; the workflow caller owns the transaction."""
     rows = run_tournament_simulation(team_dicts(db), match_dicts(db), simulations, seed)
     completed = list(db.scalars(select(Match).where(Match.completed.is_(True))))
     fingerprint_input = "|".join(
@@ -142,7 +143,7 @@ def run_and_store_forecast(
         for row in rows
     ]
     db.add(run)
-    db.commit()
+    db.flush()
     return latest_forecast(db)
 
 
@@ -154,7 +155,7 @@ def store_knockout_forecast_history(
     simulations: int = 10_000,
     max_new_runs: int = 6,
 ) -> dict[str, int]:
-    """Persist one post-result tournament forecast per completed knockout."""
+    """Stage one post-result forecast per knockout; the caller commits."""
     completed_events = sorted(
         (
             (match_number, event)
@@ -249,8 +250,6 @@ def store_knockout_forecast_history(
         db.flush()
         existing_fingerprints.add(fingerprint)
         inserted += 1
-    if inserted:
-        db.commit()
     return {"inserted": inserted, "completed_knockouts": len(completed_events)}
 
 
