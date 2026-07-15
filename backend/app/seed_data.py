@@ -8,6 +8,20 @@ from sqlalchemy.schema import CreateIndex
 
 from .paths import data_path
 from .models import ForecastProbability, ForecastRun, Match, Team
+from .models.database import Base
+
+
+def enable_application_table_rls(db: Session) -> None:
+    """Default-deny Supabase's Data API without affecting the owner connection."""
+    connection = db.connection()
+    if connection.dialect.name != "postgresql":
+        return
+    quote_identifier = connection.dialect.identifier_preparer.quote_identifier
+    for table in Base.metadata.sorted_tables:
+        db.execute(text(
+            f"ALTER TABLE public.{quote_identifier(table.name)} ENABLE ROW LEVEL SECURITY"
+        ))
+    db.commit()
 
 
 def ensure_schema(db: Session) -> None:
@@ -45,6 +59,7 @@ def ensure_schema(db: Session) -> None:
         )
         db.execute(CreateIndex(unique_index, if_not_exists=True))
         db.commit()
+    enable_application_table_rls(db)
 
 
 def seed_database(db: Session) -> None:

@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import create_engine, func, inspect, select, text
+from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
@@ -19,6 +20,7 @@ from app.models import (
 )
 from app.models.database import Base
 from app import main as main_module
+from app import seed_data as seed_data_module
 from app.seed_data import ensure_schema, seed_database
 from app.services import live_sync
 from app.services.forecast_service import MODEL_VERSION
@@ -134,6 +136,46 @@ def test_schema_upgrade_handles_missing_column_and_index_together(tmp_path):
     assert "uq_forecast_runs_result_model" in {
         index["name"] for index in schema.get_indexes("forecast_runs")
     }
+
+
+def test_postgres_schema_enables_rls_for_every_application_table():
+    statements = []
+    commits = []
+
+    class FakeSession:
+        def connection(self):
+            return SimpleNamespace(dialect=postgresql.dialect())
+
+        def execute(self, statement):
+            statements.append(str(statement))
+
+        def commit(self):
+            commits.append(True)
+
+    seed_data_module.enable_application_table_rls(FakeSession())
+
+    assert set(statements) == {
+        f'ALTER TABLE public."{table_name}" ENABLE ROW LEVEL SECURITY'
+        for table_name in Base.metadata.tables
+    }
+    assert commits == [True]
+    assert any("knockout_prediction_snapshots" in statement for statement in statements)
+    assert all("FORCE ROW LEVEL SECURITY" not in statement for statement in statements)
+
+
+def test_sqlite_schema_does_not_execute_rls_statements():
+    statements = []
+
+    class FakeSession:
+        def connection(self):
+            return SimpleNamespace(dialect=sqlite.dialect())
+
+        def execute(self, statement):
+            statements.append(str(statement))
+
+    seed_data_module.enable_application_table_rls(FakeSession())
+
+    assert statements == []
 
 
 def test_schema_upgrade_deduplicates_forecast_revisions_before_unique_index(tmp_path):
