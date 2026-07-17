@@ -6,7 +6,10 @@ import pytest
 from app.api import routes_bracket, routes_forecast, routes_matches
 from app import main as main_module
 from app.main import app
+from app.models.database import SessionLocal
 from app.services.live_sync import skipped_sync_summary
+from app.services.forecast_service import team_dicts
+from app.services.match_model import match_probabilities
 
 
 def test_cron_sync_preserves_structured_skip_status(monkeypatch):
@@ -372,3 +375,80 @@ def test_third_place_match_uses_bracket_projection_participants(monkeypatch):
     )
     assert projected["home_source"] == 101
     assert projected["away_source"] == 102
+
+
+def test_knockout_surfaces_use_replayed_live_ratings(monkeypatch):
+    events = {
+        104: {
+            "home": "Spain",
+            "away": "Argentina",
+            "winner": None,
+            "state": "pre",
+            "detail": "Scheduled",
+        }
+    }
+    scoreboard = lambda: {"events": [{"id": "final"}]}
+    parser = lambda payload: events
+
+    def replayed_teams(db, confirmed_knockouts, group_overrides=None):
+        teams = team_dicts(db)
+        for team in teams:
+            if team["name"] == "Spain":
+                team["rating"] = 2200
+            elif team["name"] == "Argentina":
+                team["rating"] = 1800
+        return teams, 72
+
+    for route in (routes_matches, routes_bracket):
+        monkeypatch.setattr(route, "cached_espn_scoreboard", scoreboard)
+        monkeypatch.setattr(route, "knockout_match_overrides", parser)
+        monkeypatch.setattr(route, "_live_team_dicts", replayed_teams, raising=False)
+    monkeypatch.setattr(routes_matches, "group_match_overrides", lambda payload: {})
+    monkeypatch.setattr(routes_bracket, "group_match_overrides", lambda payload: {})
+    monkeypatch.setattr(routes_matches, "_KNOCKOUT_MATCH_CACHE", None)
+
+    _, _, home_win, _, away_win = match_probabilities(2200, 1800)
+    expected_spain = home_win / (home_win + away_win)
+
+    with TestClient(app) as client:
+        matches = client.get("/matches").json()
+        bracket = client.get("/bracket").json()
+
+    final_match = next(match for match in matches if match["match_number"] == 104)
+    final_bracket = bracket["rounds"][-1]["matches"][0]
+    assert final_match["home_team"] == final_bracket["home"]["team"] == "Spain"
+    assert final_match["away_team"] == final_bracket["away"]["team"] == "Argentina"
+    assert final_match["prediction"]["home_win_probability"] == pytest.approx(expected_spain)
+    assert final_bracket["home_advance_probability"] == pytest.approx(expected_spain)
+
+
+def test_knockout_match_cache_varies_with_live_ratings():
+    events = {
+        104: {
+            "home": "Spain",
+            "away": "Argentina",
+            "winner": None,
+            "state": "pre",
+            "detail": "Scheduled",
+        }
+    }
+
+    def ratings(spain: float, argentina: float) -> list[dict]:
+        with SessionLocal() as db:
+            teams = team_dicts(db)
+        for team in teams:
+            if team["name"] == "Spain":
+                team["rating"] = spain
+            elif team["name"] == "Argentina":
+                team["rating"] = argentina
+        return teams
+
+    routes_matches._KNOCKOUT_MATCH_CACHE = None
+    with SessionLocal() as db:
+        spain_favored = routes_matches._projected_knockout_matches(db, events, ratings(2200, 1800))
+        argentina_favored = routes_matches._projected_knockout_matches(db, events, ratings(1800, 2200))
+
+    first_final = next(match for match in spain_favored if match["match_number"] == 104)
+    second_final = next(match for match in argentina_favored if match["match_number"] == 104)
+    assert first_final["prediction"]["home_win_probability"] > 0.5
+    assert second_final["prediction"]["home_win_probability"] < 0.5

@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import UTC, datetime
 import hashlib
+import math
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session
 from ..models import KnockoutPredictionSnapshot
 from .bracket_service import index_projection_matches
 from .accuracy_service import _most_likely_score, _selected_outcome
-from .knockout_schedule import KNOCKOUT_SCHEDULE
+from .knockout_schedule import KNOCKOUT_SCHEDULE, ROUND_LABELS
 from .match_model import expected_goals, outcome_probabilities
 from .model_parameters import MODEL_VERSION
 from .ratings import update_rating_pair
@@ -64,11 +65,141 @@ def knockout_prediction_inventory(db: Session, now: datetime | None = None) -> d
             "predicted_outcome": snapshot.predicted_outcome,
             "predicted_home_score": snapshot.predicted_home_score,
             "predicted_away_score": snapshot.predicted_away_score,
+            "predicted_score_probability": snapshot.predicted_score_probability,
         })
     return {
         "matches_with_predictions": len(matches),
         "total_revisions": sum(len(rows) for rows in revisions_by_match.values()),
         "matches": matches,
+    }
+
+
+def knockout_accuracy(
+    db: Session,
+    knockout_events: dict[int, dict],
+    now: datetime | None = None,
+) -> dict:
+    """Score immutable knockout picks against the two-team advance market."""
+    inventory = knockout_prediction_inventory(db, now=now)
+    matches = []
+    for prediction in inventory["matches"]:
+        match_number = prediction["match_number"]
+        schedule = KNOCKOUT_SCHEDULE.get(match_number)
+        if schedule is None:
+            continue
+        round_name = schedule[0]
+        event = knockout_events.get(match_number, {})
+        event_present = match_number in knockout_events
+        event_complete = event.get("state") == "post" or event.get("completed") is True
+        event_matches_prediction = (
+            event.get("home") == prediction["home_team"]
+            and event.get("away") == prediction["away_team"]
+        )
+        home_score = event.get("home_score") if event_matches_prediction else None
+        away_score = event.get("away_score") if event_matches_prediction else None
+        actual_advancer = (
+            event.get("winner") if event_complete and event_matches_prediction else None
+        )
+        if (
+            event_complete
+            and actual_advancer is None
+            and home_score is not None
+            and away_score is not None
+        ):
+            if home_score > away_score:
+                actual_advancer = prediction["home_team"]
+            elif away_score > home_score:
+                actual_advancer = prediction["away_team"]
+
+        decisive_probability = prediction["home_win_probability"] + prediction["away_win_probability"]
+        home_advance = prediction["home_win_probability"] / decisive_probability
+        away_advance = prediction["away_win_probability"] / decisive_probability
+        predicted_advancer = (
+            prediction["home_team"] if home_advance >= away_advance else prediction["away_team"]
+        )
+        scored = actual_advancer in (prediction["home_team"], prediction["away_team"])
+        if event_complete and not event_matches_prediction:
+            row_status = "completed_unscored"
+            unscored_reason = "participant_mismatch"
+        elif event_complete and scored:
+            row_status = "scored"
+            unscored_reason = None
+        elif event_complete:
+            row_status = "completed_unscored"
+            unscored_reason = "winner_unavailable"
+        elif event_matches_prediction and event.get("state") == "in":
+            row_status = "in_progress"
+            unscored_reason = None
+        elif event_present and not event_matches_prediction:
+            row_status = "unavailable"
+            unscored_reason = "participant_mismatch"
+        elif prediction["prediction_status"] == "updating":
+            row_status = "upcoming"
+            unscored_reason = None
+        else:
+            row_status = "unavailable"
+            unscored_reason = "result_unavailable"
+        actual_probability = (
+            home_advance if actual_advancer == prediction["home_team"] else away_advance
+        ) if scored else None
+        matches.append({
+            **prediction,
+            "round": round_name,
+            "round_label": ROUND_LABELS[round_name],
+            "prediction_source": "locked" if prediction["source"] == "live" else "reconstructed",
+            "home_advance_probability": home_advance,
+            "away_advance_probability": away_advance,
+            "predicted_advancer": predicted_advancer,
+            "home_score": home_score,
+            "away_score": away_score,
+            "actual_advancer": actual_advancer,
+            "row_status": row_status,
+            "unscored_reason": unscored_reason,
+            "completed": event_complete,
+            "picked_correct": predicted_advancer == actual_advancer if scored else None,
+            "exact_score": (
+                prediction["predicted_home_score"] == home_score
+                and prediction["predicted_away_score"] == away_score
+            ) if event_complete and home_score is not None and away_score is not None else None,
+            "brier_score": (
+                (home_advance - (1 if actual_advancer == prediction["home_team"] else 0)) ** 2
+                + (away_advance - (1 if actual_advancer == prediction["away_team"] else 0)) ** 2
+            ) if scored else None,
+            "log_loss": -math.log(max(actual_probability, 1e-12)) if actual_probability is not None else None,
+        })
+
+    scored_rows = [match for match in matches if match["row_status"] == "scored"]
+    picked_correct = sum(bool(match["picked_correct"]) for match in scored_rows)
+    completed_events = sum(
+        event.get("state") == "post" or event.get("completed") is True
+        for event in knockout_events.values()
+    )
+    return {
+        "matches_with_predictions": inventory["matches_with_predictions"],
+        "total_revisions": inventory["total_revisions"],
+        "completed_matches": completed_events,
+        "scored_matches": len(scored_rows),
+        "upcoming_matches": sum(match["row_status"] == "upcoming" for match in matches),
+        "in_progress_matches": sum(match["row_status"] == "in_progress" for match in matches),
+        "unavailable_matches": sum(
+            match["row_status"] in ("completed_unscored", "unavailable") for match in matches
+        ),
+        "unscored_completed_matches": max(completed_events - len(scored_rows), 0),
+        "locked_predictions": sum(match["prediction_source"] == "locked" for match in scored_rows),
+        "reconstructed_predictions": sum(
+            match["prediction_source"] == "reconstructed" for match in scored_rows
+        ),
+        "picked_correct": picked_correct,
+        "pick_accuracy": picked_correct / len(scored_rows) if scored_rows else 0,
+        "average_brier_score": (
+            sum(match["brier_score"] for match in scored_rows) / len(scored_rows)
+            if scored_rows else 0
+        ),
+        "average_log_loss": (
+            sum(match["log_loss"] for match in scored_rows) / len(scored_rows)
+            if scored_rows else 0
+        ),
+        "matches": sorted(matches, key=lambda match: match["match_number"], reverse=True),
     }
 
 

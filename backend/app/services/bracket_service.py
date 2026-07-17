@@ -160,12 +160,13 @@ def bracket_projection(
     db: Session,
     confirmed_knockouts: dict[int, dict] | None = None,
     live_snapshot: dict | None = None,
+    live_teams: list[dict] | None = None,
 ) -> dict:
     forecast = latest_forecast(db)
     if forecast is None:
         return {"forecast": None, "favorite": None, "rounds": []}
 
-    teams = team_dicts(db)
+    teams = live_teams or team_dicts(db)
     team_by_id = {
         team["id"]: BracketTeam(team["id"], team["name"], team["group"], team["rating"])
         for team in teams

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 from ..models import Match, Team
 from ..models.database import get_db
 from ..services.bracket_service import bracket_projection, index_projection_matches
+from ..services.forecast_service import _live_team_dicts
 from ..services.knockout_schedule import KNOCKOUT_SCHEDULE, ROUND_LABELS, knockout_broadcasts
 from ..services.knockout_state import knockout_state
 from ..services.live_sync import cached_espn_scoreboard, group_match_overrides, knockout_match_overrides, result_fingerprint, score_for_event
@@ -56,7 +57,12 @@ def serialize(match: Match, live_event: dict | None = None) -> dict:
     }
 
 
-def _team_lookup(db: Session) -> dict[str, dict]:
+def _team_lookup(db: Session, live_teams: list[dict] | None = None) -> dict[str, dict]:
+    if live_teams is not None:
+        return {
+            team["name"]: {"team_id": team["id"], "team": team["name"], "rating": team["rating"]}
+            for team in live_teams
+        }
     return {
         team.name: {"team_id": team.id, "team": team.name, "rating": team.rating}
         for team in db.scalars(select(Team))
@@ -97,12 +103,20 @@ def _event_score(event: dict | None) -> tuple[int | None, int | None, str, str, 
     return event["home_score"], event["away_score"], state, detail, event["completed"]
 
 
-def _knockout_cache_key(db: Session, espn_events: dict[int, dict]) -> str:
+def _knockout_cache_key(
+    db: Session,
+    espn_events: dict[int, dict],
+    live_teams: list[dict] | None = None,
+) -> str:
     event_state = "|".join(
         f"{match_number}:{event.get('home') or ''}:{event.get('away') or ''}:{event.get('winner') or ''}:{event.get('state', '')}:{event.get('detail', '')}"
         for match_number, event in sorted(espn_events.items())
     )
-    return f"{result_fingerprint(db)}:{event_state}"
+    rating_state = "|".join(
+        f"{team['id']}:{team['rating']:.12f}"
+        for team in sorted(live_teams or [], key=lambda item: item["id"])
+    )
+    return f"{result_fingerprint(db)}:{event_state}:{rating_state}"
 
 
 def _confirmed_knockout_team_ids(espn_events: dict[int, dict], teams: dict[str, dict]) -> dict[int, set[int]]:
@@ -121,18 +135,22 @@ def _confirmed_knockout_team_ids(espn_events: dict[int, dict], teams: dict[str, 
     return confirmed_by_match
 
 
-def _projected_knockout_matches(db: Session, espn_events: dict[int, dict]) -> list[dict]:
+def _projected_knockout_matches(
+    db: Session,
+    espn_events: dict[int, dict],
+    live_teams: list[dict] | None = None,
+) -> list[dict]:
     global _KNOCKOUT_MATCH_CACHE
     now = monotonic()
-    cache_key = _knockout_cache_key(db, espn_events)
+    cache_key = _knockout_cache_key(db, espn_events, live_teams)
     if _KNOCKOUT_MATCH_CACHE is not None:
         cached_at, cached_key, cached_matches = _KNOCKOUT_MATCH_CACHE
         if cached_key == cache_key and now - cached_at < KNOCKOUT_MATCH_CACHE_TTL_SECONDS:
             return cached_matches
 
-    projection = bracket_projection(db, espn_events)
+    projection = bracket_projection(db, espn_events, live_teams=live_teams)
     projected = index_projection_matches(projection)
-    teams = _team_lookup(db)
+    teams = _team_lookup(db, live_teams)
     confirmed_by_match = _confirmed_knockout_team_ids(espn_events, teams)
     confirmed_team_ids = {
         team_id
@@ -221,8 +239,9 @@ def get_matches(db: Session = Depends(get_db)):
         overrides = group_match_overrides(payload)
     except Exception:
         overrides = {}
+    live_teams, _ = _live_team_dicts(db, state.events, overrides)
     group_matches = [
         serialize(match, overrides.get(frozenset((match.home_team.name, match.away_team.name))))
         for match in matches
     ]
-    return [*group_matches, *_projected_knockout_matches(db, state.events)]
+    return [*group_matches, *_projected_knockout_matches(db, state.events, live_teams)]

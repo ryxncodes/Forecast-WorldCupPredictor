@@ -220,6 +220,57 @@ export type AccuracyMatch = {
   goal_error: number;
 };
 
+export type KnockoutAccuracyMatch = {
+  snapshot_id: number;
+  match_number: number;
+  kickoff: string;
+  generated_at: string;
+  round: "round_of_32" | "round_of_16" | "quarterfinal" | "semifinal" | "third_place" | "final";
+  round_label: string;
+  home_team: string;
+  away_team: string;
+  home_team_rating: number;
+  away_team_rating: number;
+  home_score: number | null;
+  away_score: number | null;
+  home_expected_goals: number;
+  away_expected_goals: number;
+  home_advance_probability: number;
+  away_advance_probability: number;
+  predicted_advancer: string;
+  actual_advancer: string | null;
+  predicted_home_score: number;
+  predicted_away_score: number;
+  predicted_score_probability: number;
+  prediction_status: "updating" | "frozen";
+  prediction_source: "locked" | "reconstructed";
+  row_status: "upcoming" | "in_progress" | "scored" | "completed_unscored" | "unavailable";
+  unscored_reason: "participant_mismatch" | "winner_unavailable" | "result_unavailable" | null;
+  completed: boolean;
+  picked_correct: boolean | null;
+  exact_score: boolean | null;
+  brier_score: number | null;
+  log_loss: number | null;
+};
+
+export type KnockoutAccuracyReport = {
+  matches_with_predictions: number;
+  total_revisions: number;
+  completed_matches: number;
+  scored_matches: number;
+  upcoming_matches: number;
+  in_progress_matches: number;
+  unavailable_matches: number;
+  unscored_completed_matches: number;
+  locked_predictions: number;
+  reconstructed_predictions: number;
+  picked_correct: number;
+  pick_accuracy: number;
+  average_brier_score: number;
+  average_log_loss: number;
+  matches: KnockoutAccuracyMatch[];
+};
+
 export type OutcomeDistribution = {
   home: number;
   draw: number;
@@ -242,4 +293,5 @@ export type AccuracyReport = {
   predicted_result_distribution: OutcomeDistribution;
   actual_result_distribution: OutcomeDistribution;
   matches: AccuracyMatch[];
+  knockout_predictions?: KnockoutAccuracyReport;
 };
