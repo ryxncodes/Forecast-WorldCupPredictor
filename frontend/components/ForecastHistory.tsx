@@ -138,7 +138,7 @@ export function ForecastHistory({ runs, matches }: { runs: Forecast[]; matches: 
               </svg>
               {hoveredPoint !== null ? <div className={`history-tooltip${tooltipEdge}`} style={{ "--history-tooltip-left": `${(points[hoveredPoint].x / WIDTH) * 100}%`, top: `${(points[hoveredPoint].y / HEIGHT) * 100}%` } as CSSProperties}><strong>{(points[hoveredPoint].probability * 100).toFixed(1)}%</strong><span>{points[hoveredPoint].label}</span></div> : null}
             </div>
-            <div className="history-labels"><span>{points[0]?.label}</span><strong>{Math.round(points.at(-1)!.probability * 100)}% now</strong><span>{points.at(-1)?.label}</span></div>
+            <div className="history-labels"><span>{points[0]?.label}</span><strong>{Math.round(points.at(-1)!.probability * 100)}% final</strong><span>{points.at(-1)?.label}</span></div>
             <div className={denseChart ? "history-snapshots compact" : "history-snapshots"}>{points.map((point, index) => <div key={`${point.run.id}-${index}`}><span>{point.label}</span><strong>{(point.probability * 100).toFixed(1)}%</strong></div>)}</div>
           </>}
         </div>
