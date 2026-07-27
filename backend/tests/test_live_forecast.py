@@ -125,3 +125,42 @@ def test_live_forecast_single_flight_coalesces_concurrent_requests(monkeypatch):
     assert first == second
     assert first is not second
     assert calls == 1
+
+
+def test_completed_tournament_returns_frozen_forecast_without_simulation(monkeypatch):
+    with SessionLocal() as db:
+        fixtures = list(db.scalars(
+            select(Match)
+            .options(joinedload(Match.home_team), joinedload(Match.away_team))
+            .order_by(Match.match_number)
+        ))
+        group_overrides = {
+            frozenset((match.home_team.name, match.away_team.name)): {
+                "state": "post",
+                "home": match.home_team.name,
+                "away": match.away_team.name,
+                "home_score": 1,
+                "away_score": 0,
+            }
+            for match in fixtures
+        }
+        completed_knockouts = {
+            match_number: {"state": "post"}
+            for match_number in range(73, 105)
+        }
+
+        def fail_if_simulated(*args, **kwargs):
+            raise AssertionError("completed tournament must not run simulations")
+
+        monkeypatch.setattr(forecast_service, "run_tournament_simulation", fail_if_simulated)
+        result = forecast_service.live_forecast(
+            db,
+            completed_knockouts,
+            simulations=20,
+            group_overrides=group_overrides,
+        )
+
+    assert result is not None
+    assert result["completed_results"] == 104
+    champion = next(row for row in result["probabilities"] if row["champion_probability"] == 1)
+    assert champion["team"] == "Spain"

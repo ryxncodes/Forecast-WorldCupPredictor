@@ -86,7 +86,7 @@ export async function GET() {
                 margin: 0,
               }}
             >
-              World Cup 2026 predictor
+              World Cup 2026 results
             </h1>
             <p
               style={{
@@ -97,7 +97,7 @@ export async function GET() {
                 margin: 0,
               }}
             >
-              Explainable match forecasts, bracket history, and transparent accuracy tracking.
+              Final standings, every match, the complete bracket, and saved predictions.
             </p>
           </div>
           <div

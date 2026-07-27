@@ -7,8 +7,8 @@ const serif = Lora({ subsets: ["latin"], variable: "--font-serif" });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://worldcup.ryxncodes.com"),
-  title: "The Forecast | World Cup Match Predictor",
-  description: "An explainable World Cup predictor that updates Elo ratings, Poisson match forecasts, and Monte Carlo tournament odds as results come in.",
+  title: "The Forecast | World Cup 2026 Results",
+  description: "Explore the completed World Cup 2026 tournament, match results, bracket, standings, and saved predictions.",
   applicationName: "The Forecast",
   icons: {
     icon: [
@@ -19,8 +19,8 @@ export const metadata: Metadata = {
     apple: [{ url: "/apple-touch-icon.png?v=3", sizes: "180x180", type: "image/png" }],
   },
   openGraph: {
-    title: "The Forecast | World Cup Match Predictor",
-    description: "Explore World Cup forecasts powered by Elo ratings, Poisson match projections, and Monte Carlo tournament simulations.",
+    title: "The Forecast | World Cup 2026 Results",
+    description: "Explore the completed tournament, match results, bracket, standings, and saved predictions.",
     url: "https://worldcup.ryxncodes.com",
     siteName: "The Forecast",
     images: [
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
         url: "/opengraph-image?v=4",
         width: 1200,
         height: 630,
-        alt: "The Forecast World Cup 2026 predictor",
+        alt: "The Forecast World Cup 2026 results",
       },
     ],
     locale: "en_US",
@@ -36,8 +36,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "The Forecast | World Cup Match Predictor",
-    description: "Explore World Cup forecasts powered by an explainable model and Monte Carlo simulations.",
+    title: "The Forecast | World Cup 2026 Results",
+    description: "Explore the completed tournament, match results, bracket, standings, and saved predictions.",
     images: ["/opengraph-image?v=4"],
   },
 };

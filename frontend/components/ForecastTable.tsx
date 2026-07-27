@@ -76,16 +76,17 @@ function LocalUpdateTime({ value }: { value: string | null }) {
 
 export function ForecastTable({ forecast, syncStatus }: { forecast: Forecast; syncStatus?: SyncStatus | null }) {
   const rows = forecast.probabilities;
+  const tournamentComplete = forecast.completed_results === 104;
   const [sortKey, setSortKey] = useState<ProbabilityKey>("champion_probability");
   const hiddenColumns = useMemo(() => new Set(forecast.hidden_probability_keys ?? []), [forecast.hidden_probability_keys]);
   const visibleColumns = useMemo(
-    () => columns.filter((column) => (
+    () => tournamentComplete ? [] : columns.filter((column) => (
       !hiddenColumns.has(column.key)
       && (alwaysVisibleColumns.has(column.key)
       || rows.some((row) => !resolvedProbability(row[column.key]))
       )
     )),
-    [hiddenColumns, rows],
+    [hiddenColumns, rows, tournamentComplete],
   );
   useEffect(() => {
     if (!visibleColumns.some((column) => column.key === sortKey)) {
@@ -109,19 +110,19 @@ export function ForecastTable({ forecast, syncStatus }: { forecast: Forecast; sy
   return (
     <section id="forecast" className="forecast-section" aria-labelledby="forecast-heading">
       <div className="section-heading">
-        <div><h1 id="forecast-heading">World Cup 2026 forecast</h1><p>An explainable statistical model updates Elo team strength from completed results, projects score probabilities with Poisson distributions, and simulates the tournament bracket thousands of times.</p></div>
-        <div className="data-status"><strong>Forecast updated <LocalUpdateTime value={forecast.created_at} /></strong><span>{forecast.completed_results}/104 matches complete</span>{syncStatus?.checked_at ? <small>Scores checked <LocalUpdateTime value={syncStatus.checked_at} /></small> : null}</div>
+        <div><h1 id="forecast-heading">World Cup 2026 {tournamentComplete ? "results" : "forecast"}</h1><p>{tournamentComplete ? "Final tournament finishes and completed group standings." : "An explainable statistical model updates Elo team strength from completed results, projects score probabilities with Poisson distributions, and simulates the tournament bracket thousands of times."}</p></div>
+        <div className="data-status">{tournamentComplete ? <><strong>Tournament complete</strong><span>104/104 matches</span></> : <><strong>Forecast updated <LocalUpdateTime value={forecast.created_at} /></strong><span>{forecast.completed_results}/104 matches complete</span>{syncStatus?.checked_at ? <small>Scores checked <LocalUpdateTime value={syncStatus.checked_at} /></small> : null}</>}</div>
       </div>
       <div className="table-scroll">
         <table className="forecast-table">
-          <thead><tr><th className="rank-column">#</th><th>Team</th><th>Group</th>{visibleColumns.map((column) => <th aria-sort={sortKey === column.key ? "descending" : "none"} className={column.optional ? "optional-column" : ""} key={column.key}><button className={sortKey === column.key ? "sort-button selected" : "sort-button"} type="button" onClick={() => setSortKey(column.key)}>{column.label}<SortIcon /></button></th>)}</tr></thead>
+          <thead><tr><th className="rank-column">#</th><th>Team</th><th>Group</th>{tournamentComplete ? <th>Finish</th> : null}{visibleColumns.map((column) => <th aria-sort={sortKey === column.key ? "descending" : "none"} className={column.optional ? "optional-column" : ""} key={column.key}><button className={sortKey === column.key ? "sort-button selected" : "sort-button"} type="button" onClick={() => setSortKey(column.key)}>{column.label}<SortIcon /></button></th>)}</tr></thead>
           <tbody>{sortedRows.map((row, index) => {
             const eliminated = Boolean(row.eliminated_stage);
-            return <tr className={eliminated ? `eliminated${eliminatedClass(row.eliminated_stage)}` : ""} key={row.team_id}><td className="rank-column">{index + 1}</td><th scope="row">{row.team}{eliminated ? <span className="eliminated-badge">{row.eliminated_stage}</span> : null}</th><td className="group-cell">{row.group}</td>{visibleColumns.map((column) => <td className={column.optional ? "optional-column" : ""} key={column.key}><ProbabilityCell value={row[column.key]} /></td>)}</tr>;
+            return <tr className={eliminated ? `eliminated${eliminatedClass(row.eliminated_stage)}` : ""} key={row.team_id}><td className="rank-column">{index + 1}</td><th scope="row">{row.team}{!tournamentComplete && eliminated ? <span className="eliminated-badge">{row.eliminated_stage}</span> : null}</th><td className="group-cell">{row.group}</td>{tournamentComplete ? <td><strong>{row.eliminated_stage ?? "Champion"}</strong></td> : null}{visibleColumns.map((column) => <td className={column.optional ? "optional-column" : ""} key={column.key}><ProbabilityCell value={row[column.key]} /></td>)}</tr>;
           })}</tbody>
         </table>
       </div>
-      <div className="table-note"><span>Probabilities are estimated from repeated simulated tournaments. Resolved stage columns are hidden once every team is either through or eliminated from that stage.</span><span>Active teams are sorted by {columns.find((column) => column.key === sortKey)?.label} probability. Eliminated teams are grouped by exit round.</span></div>
+      {!tournamentComplete ? <div className="table-note"><span>Probabilities are estimated from repeated simulated tournaments. Resolved stage columns are hidden once every team is either through or eliminated from that stage.</span><span>Active teams are sorted by {columns.find((column) => column.key === sortKey)?.label} probability. Eliminated teams are grouped by exit round.</span></div> : null}
     </section>
   );
 }

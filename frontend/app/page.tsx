@@ -1,14 +1,6 @@
 import { HomePageClient } from "@/components/HomePageClient";
-import { loadCachedDashboard } from "@/lib/server-api";
+import { finalDashboard } from "@/lib/final-data";
 
-export const dynamic = "force-dynamic";
-
-export default async function Home() {
-  try {
-    const data = await loadCachedDashboard();
-    return <HomePageClient initialForecast={data.forecast} initialStandings={data.standings} initialSyncStatus={data.sync_status} />;
-  } catch (caught) {
-    const message = caught instanceof Error ? caught.message : "Could not load the dashboard";
-    return <HomePageClient initialForecast={null} initialStandings={null} initialError={message} />;
-  }
+export default function Home() {
+  return <HomePageClient initialForecast={finalDashboard.forecast} initialStandings={finalDashboard.standings} initialSyncStatus={finalDashboard.sync_status} />;
 }

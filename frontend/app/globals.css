@@ -225,12 +225,14 @@ table { border-collapse: collapse; width: 100%; }
 .accuracy-section { padding: 6px 0 28px; scroll-margin-top: 84px; }
 .page-actions { display: flex; justify-content: flex-end; margin: -34px 0 18px; }
 .accuracy-scorecards { display: grid; gap: 10px; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 22px 0; }
+.accuracy-scorecards.compact-results { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 900px; }
 .accuracy-scorecards div { border: 1px solid var(--line); display: grid; gap: 4px; min-height: 88px; padding: 12px; }
 .accuracy-scorecards span { color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .accuracy-scorecards strong { color: var(--green); font-size: 24px; font-variant-numeric: tabular-nums; line-height: 1; }
 .accuracy-scorecards small { color: var(--text-soft); font-size: 10px; }
 .accuracy-table-wrap { border: 1px solid var(--line-dark); max-height: 650px; overflow: auto; }
 .accuracy-table { font-size: 11px; min-width: 980px; }
+.accuracy-table.simplified { min-width: 720px; }
 .accuracy-table th, .accuracy-table td { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: middle; }
 .accuracy-table th:last-child, .accuracy-table td:last-child { border-right: 0; }
 .accuracy-table thead th { background: var(--surface-subtle); color: var(--text-soft); font-size: 10px; position: sticky; top: 0; z-index: 2; }

@@ -48,6 +48,10 @@ function formatScore(match: Match) {
 export function MatchList({ matches }: Props) {
   const hasLiveMatches = matches.some((match) => match.status === "in");
   const hasUpcomingMatches = matches.some((match) => match.status === "pre");
+  const allCompleted = matches.every((match) => match.status === "post");
+  const filterOptions = allCompleted
+    ? (["all", "completed"] as const)
+    : (["all", "live", "upcoming", "completed"] as const);
   const defaultFilter = hasLiveMatches ? "live" : hasUpcomingMatches ? "upcoming" : "all";
   const [filter, setFilter] = useState<"all" | "live" | "upcoming" | "completed">(() => defaultFilter);
   const [autoFilter, setAutoFilter] = useState(true);
@@ -102,7 +106,7 @@ export function MatchList({ matches }: Props) {
 
   return (
     <section id="matches" className="matches-section" aria-labelledby="matches-heading">
-      <div className="matches-title"><h2 id="matches-heading">Tournament matches</h2><div className="match-filters" aria-label="Filter matches">{(["all", "live", "upcoming", "completed"] as const).map((value) => <button aria-pressed={filter === value} className={filter === value ? "active" : ""} type="button" key={value} onClick={() => { setAutoFilter(false); setFilter(value); }}>{value[0].toUpperCase() + value.slice(1)}</button>)}</div></div>
+      <div className="matches-title"><h2 id="matches-heading">Tournament matches</h2><div className="match-filters" aria-label="Filter matches">{filterOptions.map((value) => <button aria-pressed={filter === value} className={filter === value ? "active" : ""} type="button" key={value} onClick={() => { setAutoFilter(false); setFilter(value); }}>{value[0].toUpperCase() + value.slice(1)}</button>)}</div></div>
       <div className="match-list">
         {!groupedMatches.length ? <p className="match-empty-state">No {filter === "all" ? "" : filter} matches to show right now.</p> : null}
         {groupedMatches.map((group) => <div className="match-day-group" key={group.key}>
@@ -166,7 +170,7 @@ export function MatchList({ matches }: Props) {
         })}
         </div>)}
       </div>
-      <p className="matches-note">Scores refresh automatically. Live scores are displayed immediately; standings, ratings, and tournament forecasts update only after the result is final.</p>
+      <p className="matches-note">The tournament is complete. Scores and match details are preserved from the final dataset.</p>
     </section>
   );
 }

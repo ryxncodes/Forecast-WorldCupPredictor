@@ -45,6 +45,6 @@ export function ThirdPlaceView({ standings, forecast }: { standings: Standings; 
         </div>
       </section>
     </div>
-    <p className="third-page-note">The current table uses the public score feed. {groupsComplete ? "Qualification is resolved from completed group results." : "Projections keep completed results fixed, simulate only remaining group matches, and isolate advancement specifically as one of the eight best third-place teams."} Fair-play card totals and official FIFA ranking are not yet in the dataset, so the app uses its pre-tournament rating only as a final deterministic fallback when every available football criterion is still tied.</p>
+    <p className="third-page-note">{groupsComplete ? "Qualification is resolved from completed group results." : "Projections keep completed results fixed and simulate only remaining group matches."} Fair-play totals are not included, so the archive uses the pre-tournament rating as a deterministic final tiebreaker when the available football criteria remain tied.</p>
   </section>;
 }

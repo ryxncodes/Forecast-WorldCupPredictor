@@ -15,7 +15,7 @@ from .settings import ADMIN_SYNC_ENABLED, CORS_ORIGINS, valid_cron_authorization
 from .seed_data import seed_database
 from .services.accuracy_service import backfill_completed_match_predictions, lock_upcoming_match_predictions
 from .services.forecast_service import latest_forecast, recalculate_ratings, run_and_store_forecast
-from .services.live_sync import refresh_live_data, startup_lock
+from .services.live_sync import startup_lock
 
 
 logger = logging.getLogger(__name__)
@@ -107,6 +107,10 @@ def admin_sync(x_sync_token: str | None = Header(default=None)):
 def cron_sync(authorization: str | None = Header(default=None)):
     if not valid_cron_authorization(authorization):
         raise HTTPException(status_code=401, detail="Invalid cron authorization")
-    with database.SessionLocal() as db:
-        summary = refresh_live_data(db)
-    return {"status": "skipped" if summary.get("sync_skipped") else "ok", **summary}
+    return {
+        "status": "archived",
+        "sync_skipped": True,
+        "forecast_changed": False,
+        "result_changed": False,
+        "completed_matches": 104,
+    }

@@ -36,15 +36,18 @@ def test_cron_sync_rejects_invalid_authorization_headers(authorization):
     assert response.json() == {"detail": "Invalid cron authorization"}
 
 
-def test_cron_sync_preserves_structured_skip_status(monkeypatch):
+def test_cron_sync_skips_refresh_for_archived_tournament(monkeypatch):
     monkeypatch.setattr(main_module, "valid_cron_authorization", lambda value: True)
-    monkeypatch.setattr(main_module, "refresh_live_data", lambda db: skipped_sync_summary())
 
     result = main_module.cron_sync("Bearer test")
 
-    assert result["status"] == "skipped"
-    assert result["sync_skipped"] is True
-    assert result["forecast_changed"] is False
+    assert result == {
+        "status": "archived",
+        "sync_skipped": True,
+        "forecast_changed": False,
+        "result_changed": False,
+        "completed_matches": 104,
+    }
 
 
 def test_manual_sync_preserves_structured_skip_status(monkeypatch):

@@ -1,8 +1,8 @@
 # The Forecast
 
-The Forecast is a small full-stack tournament simulator built to make the math readable. It uses a FastAPI backend, a Next.js dashboard, and SQLAlchemy persistence. Local development defaults to SQLite; deployment is prepared for Supabase Postgres. There is no Streamlit layer and no black-box machine learning pipeline.
+The Forecast is a small full-stack World Cup predictor built to make the math readable. The completed 2026 tournament is now published as a static archive, while the FastAPI, SQLAlchemy, and simulation code remain in the repository for local exploration.
 
-The repository contains 48 real teams, 12 groups, 72 group-stage fixtures, current completed results, and the full 32-team knockout bracket. The top two teams in each group plus the eight best third-place teams advance. FIFA's complete 495-row Annex C table decides where those third-place teams enter the bracket.
+The repository contains 48 real teams, 12 groups, all 72 group-stage results, and the complete 32-match knockout tournament. The public Accuracy page preserves a prediction for every match without exposing internal reconstruction labels.
 
 ## What each layer does
 
@@ -12,7 +12,7 @@ The repository contains 48 real teams, 12 groups, 72 group-stage fixtures, curre
 - `backend/app/services/simulator.py` repeats the unfinished tournament, looks up FIFA's official third-place assignment, plays all knockout rounds, and turns stage counts into probabilities.
 - `backend/app/models/` contains the small SQLAlchemy persistence layer. SQLite is the no-setup local default, while `DATABASE_URL` points hosted deployments at Supabase Postgres.
 - `backend/app/api/` exposes teams, fixtures, standings, match details, health checks, and forecasts.
-- `frontend/` uses separate Forecast, Third Place, History, and Matches routes. The dedicated third-place page shows the live eight-team cut line and projected best-third paths, so surprising probabilities are inspectable rather than opaque.
+- `frontend/` prerenders the final Forecast, Bracket, Matches, History, Accuracy, and Third Place routes from checked-in archive snapshots, so public page loads do not wait on the backend or database.
 - `backend/app/data/` keeps the real dated seed snapshot, source hashes, source notes, and FIFA's Annex C lookup visible while ensuring the FastAPI service bundles it on Vercel.
 - `scripts/` downloads source data, recalculates pre-tournament Elo ratings, and rebuilds the CSV snapshot.
 
@@ -80,9 +80,11 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). FastAPI's interactive documentation is at [http://localhost:8000/docs](http://localhost:8000/docs).
 
-The frontend defaults to `http://localhost:8000` while running on localhost. On Vercel Services it uses the same deployed origin at `/backend`. To use a separate backend, set `NEXT_PUBLIC_API_URL`.
+The public routes read the checked-in final snapshots during the Next.js build. FastAPI remains available separately for development and API inspection.
 
-## Refresh scores and store a historical forecast
+## Historical sync and replay tools
+
+The production site is archived and no longer refreshes scores or runs tournament simulations. The original data tools remain available for reproducing the project locally.
 
 Run one command from the repository root:
 
@@ -90,7 +92,7 @@ Run one command from the repository root:
 backend/.venv/bin/python scripts/sync_live_data.py
 ```
 
-It fetches the ESPN no-key scoreboard, reconciles live score/status fields directly into the database, recalculates ratings, and stores a new forecast only when a completed score changed. The checked-in seed files remain the bootstrap snapshot; scheduled live syncs do not rewrite CSV files.
+This fetches the ESPN no-key scoreboard, reconciles score/status fields into the local database, recalculates ratings, and stores a forecast when a completed score changed.
 
 For the same automatic behavior during local development, run a third terminal:
 
@@ -117,7 +119,7 @@ This repo is prepared for a single Vercel project using Services:
 - `frontend/` deploys as the Next.js service at `/`.
 - `backend/main.py` deploys as the FastAPI service at `/backend`.
 - Supabase Postgres stores teams, matches, standings inputs, and forecast history.
-- A Supabase cron job calls the protected backend sync endpoint every 10–15 minutes and writes new snapshots only when completed results change.
+- The protected cron endpoint now returns an immediate `archived` response without fetching ESPN, writing the database, or running simulations. The old Supabase schedule can be disabled.
 - `.github/workflows/sync-live-data.yml` remains a manual recovery path; it is not the production scheduler.
 
 Recommended setup:
@@ -139,7 +141,7 @@ Recommended setup:
 DATABASE_URL='postgresql://...' backend/.venv/bin/python scripts/bootstrap_database.py --backfill-history
 ```
 
-After that, configure Supabase cron to call `GET /backend/admin/cron/sync` with `Authorization: Bearer <CRON_SECRET>` every 10–15 minutes. The frontend refreshes API data in the background, so visitors see updates without pressing a run button or launching simulations themselves. The GitHub Actions workflow can still be triggered manually if the cron path needs a recovery run.
+The archived frontend needs no scheduler and makes no background API requests. If an old Supabase cron schedule exists, disable it; the endpoint remains authenticated and returns `archived` as a safe fallback.
 
 If you choose separate services instead of Vercel Services, set `NEXT_PUBLIC_API_URL` to the backend URL and set backend `CORS_ORIGINS` to the frontend URL.
 

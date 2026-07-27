@@ -6,11 +6,13 @@ from datetime import UTC, datetime, timedelta
 import hashlib
 import json
 from threading import Lock
+from functools import lru_cache
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import ForecastProbability, ForecastRun, Match, Team
+from ..paths import data_path
 from .ratings import update_rating_pair
 from .model_parameters import MODEL_VERSION
 from .knockout_schedule import KNOCKOUT_SCHEDULE
@@ -21,6 +23,24 @@ _LIVE_FORECAST_CACHE: OrderedDict[str, dict] = OrderedDict()
 _LIVE_FORECAST_INFLIGHT: dict[str, Future[dict]] = {}
 _LIVE_FORECAST_CACHE_LOCK = Lock()
 _LIVE_FORECAST_CACHE_SIZE = 4
+
+
+@lru_cache(maxsize=1)
+def _frozen_final_forecast() -> dict:
+    payload = json.loads(data_path("final_forecast.json").read_text())
+    champions = [
+        row for row in payload.get("probabilities", [])
+        if row.get("champion_probability") == 1
+    ]
+    if payload.get("completed_results") != 104 or len(champions) != 1 or champions[0].get("team") != "Spain":
+        raise RuntimeError("invalid frozen World Cup final forecast")
+    payload.update({
+        "is_live": False,
+        "tournament_revision": "final-2026",
+        "label": "Final tournament results",
+        "data_source": "Archived final tournament snapshot",
+    })
+    return payload
 
 
 def team_dicts(db: Session) -> list[dict]:
@@ -329,6 +349,11 @@ def live_forecast(
     )
     seed = int(hashlib.sha256(f"{baseline.result_fingerprint}:{knockout_fingerprint}".encode()).hexdigest()[:12], 16)
     live_teams, completed_groups = _live_team_dicts(db, confirmed_knockouts, group_overrides)
+    completed_knockouts = sum(
+        1 for event in confirmed_knockouts.values() if event.get("state") == "post"
+    )
+    if completed_groups + completed_knockouts == 104:
+        return deepcopy(_frozen_final_forecast())
     matches = match_dicts(db)
     group_fingerprint = [
         {
@@ -384,9 +409,6 @@ def live_forecast(
             simulations,
             seed,
             confirmed_knockouts=confirmed_knockouts,
-        )
-        completed_knockouts = sum(
-            1 for event in confirmed_knockouts.values() if event.get("state") == "post"
         )
         generated_at = datetime.now(UTC).isoformat()
         payload = {
