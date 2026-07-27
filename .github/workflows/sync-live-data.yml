@@ -3,6 +3,9 @@ name: Sync live World Cup data
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: world-cup-live-sync
   cancel-in-progress: true

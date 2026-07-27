@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
 import json
+import logging
 import sys
 
 from fastapi import FastAPI, Header, HTTPException
@@ -15,6 +16,9 @@ from .seed_data import seed_database
 from .services.accuracy_service import backfill_completed_match_predictions, lock_upcoming_match_predictions
 from .services.forecast_service import latest_forecast, recalculate_ratings, run_and_store_forecast
 from .services.live_sync import refresh_live_data, startup_lock
+
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -77,18 +81,14 @@ def health():
             connection.execute(text("SELECT 1"))
         database_status = "connected"
     except Exception as error:
-        raise HTTPException(status_code=503, detail=f"Database unavailable: {error}") from error
+        logger.exception("Database health check failed")
+        raise HTTPException(status_code=503, detail="Database unavailable") from error
     return {"status": "ok", "database": database_status}
 
 
 @app.post("/admin/sync", include_in_schema=False)
 def admin_sync(x_sync_token: str | None = Header(default=None)):
-    """Protected hook for manual refreshes outside GitHub Actions.
-
-    GitHub Actions remains the recommended scheduled updater because it has a
-    normal writable checkout. This endpoint is intentionally token-gated so a
-    public visitor cannot trigger expensive forecast runs.
-    """
+    """Optional token-gated manual refresh hook outside the production cron path."""
     if not ADMIN_SYNC_ENABLED:
         raise HTTPException(status_code=404, detail="Manual sync endpoint is disabled")
     if not valid_sync_token(x_sync_token):

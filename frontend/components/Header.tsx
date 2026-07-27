@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MenuIcon, XIcon } from "./Icons";
 type Props = { simulations?: number };
 
@@ -53,20 +53,50 @@ function ThemeToggle() {
 export function Header({ simulations }: Props) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuToggleRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  const wasMenuOpen = useRef(false);
 
   useEffect(() => {
     setMenuOpen(false);
   }, [pathname]);
 
   useEffect(() => {
-    document.body.classList.toggle("mobile-nav-open", menuOpen);
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
+    const desktop = window.matchMedia("(min-width: 701px)");
+    const closeAtDesktopWidth = () => {
+      if (desktop.matches) setMenuOpen(false);
     };
-    if (menuOpen) document.addEventListener("keydown", closeOnEscape);
+    closeAtDesktopWidth();
+    desktop.addEventListener("change", closeAtDesktopWidth);
+    return () => desktop.removeEventListener("change", closeAtDesktopWidth);
+  }, []);
+
+  useEffect(() => {
+    document.body.classList.toggle("mobile-nav-open", menuOpen);
+    const focusable = drawerRef.current?.querySelectorAll<HTMLElement>("a[href], button:not([disabled])") ?? [];
+    if (menuOpen) focusable[0]?.focus();
+    if (!menuOpen && wasMenuOpen.current) menuToggleRef.current?.focus();
+    wasMenuOpen.current = menuOpen;
+    const handleDrawerKeyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        return;
+      }
+      if (event.key !== "Tab" || focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    if (menuOpen) document.addEventListener("keydown", handleDrawerKeyboard);
     return () => {
       document.body.classList.remove("mobile-nav-open");
-      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("keydown", handleDrawerKeyboard);
     };
   }, [menuOpen]);
 
@@ -78,15 +108,15 @@ export function Header({ simulations }: Props) {
 
   return (
     <header className="site-header">
-      <button className="mobile-menu-toggle" type="button" aria-label="Open navigation menu" aria-expanded={menuOpen} aria-controls="mobile-navigation" onClick={() => setMenuOpen(true)}><MenuIcon /></button>
+      <button ref={menuToggleRef} className="mobile-menu-toggle" type="button" aria-label="Open navigation menu" aria-expanded={menuOpen} aria-controls="mobile-navigation" onClick={() => setMenuOpen(true)}><MenuIcon /></button>
       <Link className="brand" href="/">The Forecast</Link>
       <nav className="desktop-nav" aria-label="Dashboard sections">{renderNavItems()}</nav>
       <div className="header-actions">
         {simulations ? <span className="simulation-count"><span className="auto-status-dot" />Automatically updated · {simulations.toLocaleString()} simulations</span> : null}
         <ThemeToggle />
       </div>
-      {menuOpen ? <button className="mobile-drawer-backdrop" type="button" aria-label="Dismiss navigation menu" onClick={() => setMenuOpen(false)} /> : null}
-      {menuOpen ? <aside className="mobile-drawer open" id="mobile-navigation">
+      {menuOpen ? <button className="mobile-drawer-backdrop" type="button" tabIndex={-1} aria-hidden="true" onClick={() => setMenuOpen(false)} /> : null}
+      {menuOpen ? <aside ref={drawerRef} className="mobile-drawer open" id="mobile-navigation" role="dialog" aria-modal="true" aria-label="Navigation menu">
         <div className="mobile-drawer-heading">
           <span>Navigation</span>
           <button type="button" aria-label="Close navigation menu" onClick={() => setMenuOpen(false)}><XIcon /></button>

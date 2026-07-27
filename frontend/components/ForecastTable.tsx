@@ -28,7 +28,7 @@ const eliminatedStageOrder: Record<string, number> = {
 
 function formatProbability(value: number) {
   const percent = value * 100;
-  if (percent === 0) return "<0.01%";
+  if (percent === 0) return "0%";
   if (percent < 1) return `${percent.toFixed(2)}%`;
   if (percent < 10) return `${percent.toFixed(1)}%`;
   return `${Math.round(percent)}%`;
@@ -109,7 +109,7 @@ export function ForecastTable({ forecast, syncStatus }: { forecast: Forecast; sy
   return (
     <section id="forecast" className="forecast-section" aria-labelledby="forecast-heading">
       <div className="section-heading">
-        <div><h1 id="forecast-heading">World Cup 2026 forecast</h1><p>An adaptive machine learning predictor updates team strength from completed results, projects goal probabilities for the remaining games, and simulates the tournament bracket thousands of times.</p></div>
+        <div><h1 id="forecast-heading">World Cup 2026 forecast</h1><p>An explainable statistical model updates Elo team strength from completed results, projects score probabilities with Poisson distributions, and simulates the tournament bracket thousands of times.</p></div>
         <div className="data-status"><strong>Forecast updated <LocalUpdateTime value={forecast.created_at} /></strong><span>{forecast.completed_results}/104 matches complete</span>{syncStatus?.checked_at ? <small>Scores checked <LocalUpdateTime value={syncStatus.checked_at} /></small> : null}</div>
       </div>
       <div className="table-scroll">

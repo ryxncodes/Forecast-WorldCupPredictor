@@ -117,8 +117,8 @@ This repo is prepared for a single Vercel project using Services:
 - `frontend/` deploys as the Next.js service at `/`.
 - `backend/main.py` deploys as the FastAPI service at `/backend`.
 - Supabase Postgres stores teams, matches, standings inputs, and forecast history.
-- GitHub Actions polls ESPN's public scoreboard every ten minutes and writes new snapshots only when completed results change.
-- Vercel Hobby allows cron jobs only once per day, so high-frequency live updates are intentionally handled by GitHub Actions instead of Vercel Cron.
+- A Supabase cron job calls the protected backend sync endpoint every 10–15 minutes and writes new snapshots only when completed results change.
+- `.github/workflows/sync-live-data.yml` remains a manual recovery path; it is not the production scheduler.
 
 Recommended setup:
 
@@ -129,8 +129,9 @@ Recommended setup:
    - `DATABASE_URL`: your Supabase pooled connection string
    - `DISABLE_DB_POOL`: `true`
    - `CORS_ORIGINS`: your Vercel URL, plus localhost values if you want direct local testing
+   - `CRON_SECRET`: a long random string shared only with the protected Supabase cron request
    - `SYNC_TOKEN`: a long random string, optional unless you intentionally enable the protected manual sync endpoint
-5. In GitHub repository secrets, add:
+5. If you want the manual GitHub Actions recovery workflow, add this repository secret:
    - `DATABASE_URL`: the same Supabase pooled connection string
 6. Bootstrap Supabase once from your machine:
 
@@ -138,7 +139,7 @@ Recommended setup:
 DATABASE_URL='postgresql://...' backend/.venv/bin/python scripts/bootstrap_database.py --backfill-history
 ```
 
-After that, the scheduled workflow in `.github/workflows/sync-live-data.yml` keeps scores and forecasts current. The frontend refreshes API data in the background, so visitors see updates without pressing a run button or launching simulations themselves.
+After that, configure Supabase cron to call `GET /backend/admin/cron/sync` with `Authorization: Bearer <CRON_SECRET>` every 10–15 minutes. The frontend refreshes API data in the background, so visitors see updates without pressing a run button or launching simulations themselves. The GitHub Actions workflow can still be triggered manually if the cron path needs a recovery run.
 
 If you choose separate services instead of Vercel Services, set `NEXT_PUBLIC_API_URL` to the backend URL and set backend `CORS_ORIGINS` to the frontend URL.
 
@@ -176,7 +177,7 @@ The backend tests cover Elo expectations and updates, standings points and sorti
 - Expected goals depend only on Elo difference; there is no home advantage, player data, injury news, or learned xG model.
 - Knockout draws are resampled as a readable stand-in for extra time and penalties.
 - ESPN's public scoreboard is not a documented service-level API. Validation prevents partial or unmapped data from being accepted, but a future endpoint change will require updating the adapter.
-- Public visitors cannot edit scores or run forecasts. The optional sync hook uses a shared secret; scheduled refreshes should normally run through GitHub Actions.
+- Public visitors cannot edit scores or run forecasts. Both the production cron hook and optional manual sync hook require server-side shared secrets.
 - Forecast runs are synchronous inside the refresh command. A job queue would only be justified when simulations or users grow substantially.
 
 Good next extensions are fair-play data, calibrated expected goals, host advantage, and real extra-time/penalty modeling. Each can replace one visible seam without rewriting the project.

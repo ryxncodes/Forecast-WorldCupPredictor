@@ -8,7 +8,7 @@ const serif = Lora({ subsets: ["latin"], variable: "--font-serif" });
 export const metadata: Metadata = {
   metadataBase: new URL("https://worldcup.ryxncodes.com"),
   title: "The Forecast | World Cup Match Predictor",
-  description: "A World Cup machine learning predictor that updates team ratings, match forecasts, and tournament odds as results come in.",
+  description: "An explainable World Cup predictor that updates Elo ratings, Poisson match forecasts, and Monte Carlo tournament odds as results come in.",
   applicationName: "The Forecast",
   icons: {
     icon: [
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "The Forecast | World Cup Match Predictor",
-    description: "Live World Cup forecasts powered by an adaptive machine learning model, Poisson match projections, and Monte Carlo tournament simulations.",
+    description: "Explore World Cup forecasts powered by Elo ratings, Poisson match projections, and Monte Carlo tournament simulations.",
     url: "https://worldcup.ryxncodes.com",
     siteName: "The Forecast",
     images: [
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "The Forecast | World Cup Match Predictor",
-    description: "Live World Cup forecasts powered by an adaptive model and tournament simulations.",
+    description: "Explore World Cup forecasts powered by an explainable model and Monte Carlo simulations.",
     images: ["/opengraph-image?v=4"],
   },
 };

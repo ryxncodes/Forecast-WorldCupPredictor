@@ -112,6 +112,16 @@ export function AccuracyPageClient({ initialReport, initialError = null }: Props
   useAutoRefresh(refresh, 180000);
 
   const knockout = report ? compatibleKnockoutReport(report) : null;
+  const lockedGroupMatches = report?.matches.filter((match) => match.prediction_source === "locked") ?? [];
+  const lockedGroupCorrect = lockedGroupMatches.filter((match) => match.picked_correct).length;
+  const lockedGroupAccuracy = lockedGroupMatches.length ? lockedGroupCorrect / lockedGroupMatches.length : 0;
+  const lockedKnockoutMatches = knockout?.matches.filter(
+    (match) => match.prediction_source === "locked" && match.row_status === "scored",
+  ) ?? [];
+  const lockedKnockoutCorrect = lockedKnockoutMatches.filter((match) => match.picked_correct).length;
+  const lockedKnockoutAccuracy = lockedKnockoutMatches.length
+    ? lockedKnockoutCorrect / lockedKnockoutMatches.length
+    : 0;
 
   return (
     <>
@@ -128,13 +138,13 @@ export function AccuracyPageClient({ initialReport, initialError = null }: Props
           {error ? <div className="error-banner" role="alert">{error}</div> : null}
           {report ? <>
             <div className="accuracy-scorecards">
-              <div><span>Group-stage result accuracy</span><strong>{scoredPercent(report.pick_accuracy, report.scored_matches)}</strong><small>{report.picked_correct}/{report.scored_matches} correct</small></div>
-              <div><span>Group-stage matches</span><strong>{report.scored_matches}</strong><small>{report.locked_predictions} locked · {report.backfilled_predictions} backfilled{report.unscored_completed_matches ? ` · ${report.unscored_completed_matches} unscored` : ""}</small></div>
-              <div><span>Brier score</span><strong>{number(report.average_brier_score)}</strong><small>Lower is better</small></div>
-              <div><span>Log loss</span><strong>{number(report.average_log_loss)}</strong><small>Lower is better</small></div>
-              <div><span>Exact scores</span><strong>{scoredPercent(report.exact_score_rate, report.scored_matches)}</strong><small>{report.exact_scores}/{report.scored_matches} hit</small></div>
+              <div><span>Live-locked accuracy</span><strong>{scoredPercent(lockedGroupAccuracy, lockedGroupMatches.length)}</strong><small>{lockedGroupCorrect}/{lockedGroupMatches.length} prospective picks correct</small></div>
+              <div><span>All group snapshots</span><strong>{scoredPercent(report.pick_accuracy, report.scored_matches)}</strong><small>{report.picked_correct}/{report.scored_matches} correct · includes {report.backfilled_predictions} backfilled</small></div>
+              <div><span>All-snapshot Brier</span><strong>{number(report.average_brier_score)}</strong><small>Lower is better</small></div>
+              <div><span>All-snapshot log loss</span><strong>{number(report.average_log_loss)}</strong><small>Lower is better</small></div>
+              <div><span>All-snapshot exact scores</span><strong>{scoredPercent(report.exact_score_rate, report.scored_matches)}</strong><small>{report.exact_scores}/{report.scored_matches} hit</small></div>
             </div>
-            <p className="accuracy-note">Top-pick accuracy scores only the single highest-probability result. The model still estimates home, draw, and away probabilities; Brier score and log loss evaluate that full probability distribution.</p>
+            <p className="accuracy-note"><strong>Live-locked accuracy is the prospective performance figure.</strong> All-snapshot metrics also include explicitly labeled historical backfills. Top-pick accuracy scores only the highest-probability result; Brier score and log loss evaluate the full home/draw/away distribution.</p>
             <div className="accuracy-summary-grid">
               <section aria-labelledby="distribution-heading">
                 <h2 id="distribution-heading">Result distribution</h2>
@@ -169,8 +179,8 @@ export function AccuracyPageClient({ initialReport, initialError = null }: Props
                 <p>Advance probabilities exclude the draw and score the team that progressed, including matches decided on penalties. Reconstructed rows replay only information available before that kickoff and remain labeled separately from genuine live locks.</p>
               </div>
               <div className="accuracy-scorecards">
-                <div><span>Advance-pick accuracy</span><strong>{scoredPercent(knockout.pick_accuracy, knockout.scored_matches)}</strong><small>{knockout.picked_correct}/{knockout.scored_matches} correct</small></div>
-                <div><span>Scored knockouts</span><strong>{knockout.scored_matches}</strong><small>{knockout.locked_predictions} locked · {knockout.reconstructed_predictions} reconstructed</small></div>
+                <div><span>Live-locked advance accuracy</span><strong>{scoredPercent(lockedKnockoutAccuracy, lockedKnockoutMatches.length)}</strong><small>{lockedKnockoutCorrect}/{lockedKnockoutMatches.length} prospective picks correct</small></div>
+                <div><span>All knockout snapshots</span><strong>{scoredPercent(knockout.pick_accuracy, knockout.scored_matches)}</strong><small>{knockout.picked_correct}/{knockout.scored_matches} correct · includes {knockout.reconstructed_predictions} reconstructed</small></div>
                 <div><span>Upcoming predictions</span><strong>{knockout.upcoming_matches}</strong><small>{knockout.in_progress_matches} live · {knockout.unavailable_matches} unavailable</small></div>
                 <div><span>Advance Brier score</span><strong>{number(knockout.average_brier_score)}</strong><small>Lower is better</small></div>
                 <div><span>Advance log loss</span><strong>{number(knockout.average_log_loss)}</strong><small>Lower is better</small></div>

@@ -239,11 +239,11 @@ def test_schema_upgrade_deduplicates_forecast_revisions_before_unique_index(tmp_
     }
 
 
-def completed_event_payload(match, home_score):
+def completed_event_payload(match, home_score, *, state="post"):
     return {
         "events": [{
             "season": {"slug": "group-stage"},
-            "status": {"type": {"state": "post", "shortDetail": "FT"}},
+            "status": {"type": {"state": state, "shortDetail": "FT" if state == "post" else "Scheduled"}},
             "competitions": [{
                 "competitors": [
                     {
@@ -263,6 +263,21 @@ def completed_event_payload(match, home_score):
             }],
         }]
     }
+
+
+def test_completed_group_result_cannot_regress_to_pre(tmp_path):
+    Session = session_factory(tmp_path)
+    with Session() as db:
+        seed_database(db)
+        match = db.scalar(select(Match).where(Match.completed.is_(True)).order_by(Match.id).limit(1))
+        original = (match.home_score, match.away_score, match.completed, match.status, match.status_detail)
+        payload = completed_event_payload(match, 0, state="pre")
+
+        summary = live_sync.refresh_live_matches(db, payload)
+
+        assert (match.home_score, match.away_score, match.completed, match.status, match.status_detail) == original
+        assert summary["changed_matches"] == 0
+        assert summary["completed_matches"] == 1
 
 
 def test_late_sync_failure_rolls_back_every_service_write(tmp_path, monkeypatch):

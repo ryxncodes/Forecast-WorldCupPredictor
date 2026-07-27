@@ -14,6 +14,7 @@ type Props = {
 
 function formatPercent(value: number) {
   const percent = value * 100;
+  if (percent === 0) return "0%";
   if (percent < 1) return `${percent.toFixed(1)}%`;
   return `${Math.round(percent)}%`;
 }
@@ -62,6 +63,15 @@ export function BracketPageClient({ initialBracket, initialError = null }: Props
 
   useAutoRefresh(refresh, 180000);
 
+  const finalMatch = bracket?.rounds.find((round) => round.key === "final")?.matches[0];
+  const tournamentComplete = finalMatch?.status === "post" && finalMatch.winner_status === "confirmed";
+  const displayedFinalists = tournamentComplete && finalMatch
+    ? [finalMatch.home, finalMatch.away]
+    : bracket?.finalists ?? [];
+  const displayedChampion = tournamentComplete && finalMatch
+    ? finalMatch.projected_winner
+    : bracket?.favorite;
+
   return (
     <>
       <Header simulations={bracket?.forecast.simulations} />
@@ -72,12 +82,12 @@ export function BracketPageClient({ initialBracket, initialError = null }: Props
           <div className="bracket-hero">
             <div>
               <h1 id="bracket-heading">World Cup 2026 bracket</h1>
-              <p>The current playoff tree uses the live group tables, FIFA third-place assignment rules, and the same match model that powers the forecast.</p>
+              <p>{tournamentComplete ? "The completed playoff tree shows every confirmed result and resolved advancement outcome. Historical pre-match predictions remain available on the Accuracy page." : "The current playoff tree uses the live group tables, FIFA third-place assignment rules, and the same match model that powers the forecast."}</p>
             </div>
             <div className="bracket-status">
-              <span>Predicted champion</span>
-              <strong>{bracket.favorite.team}</strong>
-              <small>{formatPercent(bracket.favorite.champion_probability)} cup chance · updated {formatDateTimeET(bracket.forecast.created_at)}</small>
+              <span>{tournamentComplete ? "Champion" : "Predicted champion"}</span>
+              <strong>{displayedChampion?.team}</strong>
+              <small>{tournamentComplete ? "World Cup winner" : `${formatPercent(bracket.favorite.champion_probability)} cup chance`} · updated {formatDateTimeET(bracket.forecast.created_at)}</small>
             </div>
           </div>
           <div className="bracket-layout">
@@ -90,9 +100,9 @@ export function BracketPageClient({ initialBracket, initialError = null }: Props
               ))}
             </div>
             <aside className="bracket-insights" aria-label="Bracket insights">
-              <div><span>Cup favorite</span><strong>{bracket.favorite.team}</strong><small>{formatPercent(bracket.favorite.champion_probability)} champion probability</small></div>
-              <div><span>Most likely finalists</span>{bracket.finalists.map((team) => <p key={team.team_id}><strong>{team.team}</strong><small>{formatPercent(team.final_probability)}</small></p>)}</div>
-              <div><span>Model note</span><small>Dates and kickoff times use FIFA's published match schedule and are shown in Eastern Time. Probabilities show the model edge to advance from each matchup.</small></div>
+              <div><span>{tournamentComplete ? "Champion" : "Cup favorite"}</span><strong>{displayedChampion?.team}</strong><small>{tournamentComplete ? "Final result confirmed" : `${formatPercent(bracket.favorite.champion_probability)} champion probability`}</small></div>
+              <div><span>{tournamentComplete ? "Finalists" : "Most likely finalists"}</span>{displayedFinalists.map((team) => <p key={team.team_id}><strong>{team.team}</strong><small>{tournamentComplete ? (team.team_id === displayedChampion?.team_id ? "Champion" : "Runner-up") : formatPercent(team.final_probability)}</small></p>)}</div>
+              <div><span>Model note</span><small>{tournamentComplete ? "Confirmed matches display resolved 100%/0% advancement outcomes, not their original pre-match probabilities. See Accuracy for the historical predictions." : "Dates and kickoff times use FIFA's published match schedule and are shown in Eastern Time. Probabilities show the model edge to advance from each matchup."}</small></div>
             </aside>
           </div>
 

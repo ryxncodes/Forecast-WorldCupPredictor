@@ -376,6 +376,9 @@ def refresh_live_matches(db: Session, payload: dict | None = None) -> dict:
             continue
         matched += 1
         state = event["state"]
+        if match.completed and state != "post":
+            completed += 1
+            continue
         if state == "in":
             live += 1
         if state == "post":

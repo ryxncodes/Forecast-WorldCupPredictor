@@ -97,7 +97,7 @@ export async function GET() {
                 margin: 0,
               }}
             >
-              Live match forecasts, bracket odds, and model accuracy tracking.
+              Explainable match forecasts, bracket history, and transparent accuracy tracking.
             </p>
           </div>
           <div

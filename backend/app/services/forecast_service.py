@@ -1,6 +1,11 @@
+from collections import OrderedDict
+from concurrent.futures import Future
+from copy import deepcopy
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 import hashlib
+import json
+from threading import Lock
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -10,6 +15,12 @@ from .ratings import update_rating_pair
 from .model_parameters import MODEL_VERSION
 from .knockout_schedule import KNOCKOUT_SCHEDULE
 from .simulator import ForecastRow, run_tournament_simulation
+
+
+_LIVE_FORECAST_CACHE: OrderedDict[str, dict] = OrderedDict()
+_LIVE_FORECAST_INFLIGHT: dict[str, Future[dict]] = {}
+_LIVE_FORECAST_CACHE_LOCK = Lock()
+_LIVE_FORECAST_CACHE_SIZE = 4
 
 
 def team_dicts(db: Session) -> list[dict]:
@@ -318,32 +329,98 @@ def live_forecast(
     )
     seed = int(hashlib.sha256(f"{baseline.result_fingerprint}:{knockout_fingerprint}".encode()).hexdigest()[:12], 16)
     live_teams, completed_groups = _live_team_dicts(db, confirmed_knockouts, group_overrides)
-    rows = run_tournament_simulation(
-        live_teams,
-        match_dicts(db),
-        simulations,
-        seed,
-        confirmed_knockouts=confirmed_knockouts,
-    )
-    completed_knockouts = sum(1 for event in confirmed_knockouts.values() if event.get("state") == "post")
-    return {
-        "id": baseline.id,
-        "is_live": True,
-        "tournament_revision": f"live-{hashlib.sha256(knockout_fingerprint.encode()).hexdigest()[:12]}",
-        "created_at": datetime.now(UTC).isoformat(),
-        "simulations": simulations,
-        "label": "Live knockout forecast",
-        "completed_results": completed_groups + completed_knockouts,
-        "data_as_of": datetime.now(UTC).isoformat(),
-        "data_source": "ESPN public scoreboard with stored-result fallback",
+    matches = match_dicts(db)
+    group_fingerprint = [
+        {
+            "teams": sorted(team_names),
+            "home": event.get("home"),
+            "away": event.get("away"),
+            "home_score": event.get("home_score"),
+            "away_score": event.get("away_score"),
+            "state": event.get("state"),
+        }
+        for team_names, event in sorted(
+            (group_overrides or {}).items(), key=lambda item: sorted(item[0])
+        )
+    ]
+    cache_key = hashlib.sha256(json.dumps({
+        "baseline_id": baseline.id,
+        "baseline_fingerprint": baseline.result_fingerprint,
         "model_version": MODEL_VERSION,
-        "hidden_probability_keys": _hidden_probability_keys(confirmed_knockouts),
-        "probabilities": sorted(
-            [_forecast_row_payload(row) for row in rows],
-            key=lambda item: item["champion_probability"],
-            reverse=True,
-        ),
-    }
+        "simulations": simulations,
+        "knockouts": knockout_fingerprint,
+        "group_overrides": group_fingerprint,
+        "teams": [
+            {
+                "id": team["id"],
+                "name": team["name"],
+                "code": team["code"],
+                "group": team["group"],
+                "rating": team["rating"],
+            }
+            for team in live_teams
+        ],
+        "matches": matches,
+    }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+    with _LIVE_FORECAST_CACHE_LOCK:
+        cached_payload = _LIVE_FORECAST_CACHE.get(cache_key)
+        if cached_payload is not None:
+            _LIVE_FORECAST_CACHE.move_to_end(cache_key)
+            return deepcopy(cached_payload)
+        pending = _LIVE_FORECAST_INFLIGHT.get(cache_key)
+        owns_simulation = pending is None
+        if pending is None:
+            pending = Future()
+            _LIVE_FORECAST_INFLIGHT[cache_key] = pending
+
+    if not owns_simulation:
+        return deepcopy(pending.result())
+
+    try:
+        rows = run_tournament_simulation(
+            live_teams,
+            matches,
+            simulations,
+            seed,
+            confirmed_knockouts=confirmed_knockouts,
+        )
+        completed_knockouts = sum(
+            1 for event in confirmed_knockouts.values() if event.get("state") == "post"
+        )
+        generated_at = datetime.now(UTC).isoformat()
+        payload = {
+            "id": baseline.id,
+            "is_live": True,
+            "tournament_revision": f"live-{hashlib.sha256(knockout_fingerprint.encode()).hexdigest()[:12]}",
+            "created_at": generated_at,
+            "simulations": simulations,
+            "label": "Live knockout forecast",
+            "completed_results": completed_groups + completed_knockouts,
+            "data_as_of": generated_at,
+            "data_source": "ESPN public scoreboard with stored-result fallback",
+            "model_version": MODEL_VERSION,
+            "hidden_probability_keys": _hidden_probability_keys(confirmed_knockouts),
+            "probabilities": sorted(
+                [_forecast_row_payload(row) for row in rows],
+                key=lambda item: item["champion_probability"],
+                reverse=True,
+            ),
+        }
+    except BaseException as error:
+        with _LIVE_FORECAST_CACHE_LOCK:
+            _LIVE_FORECAST_INFLIGHT.pop(cache_key, None)
+            pending.set_exception(error)
+        raise
+
+    with _LIVE_FORECAST_CACHE_LOCK:
+        _LIVE_FORECAST_CACHE[cache_key] = payload
+        _LIVE_FORECAST_CACHE.move_to_end(cache_key)
+        while len(_LIVE_FORECAST_CACHE) > _LIVE_FORECAST_CACHE_SIZE:
+            _LIVE_FORECAST_CACHE.popitem(last=False)
+        _LIVE_FORECAST_INFLIGHT.pop(cache_key, None)
+        pending.set_result(payload)
+    return deepcopy(payload)
 
 
 def forecast_history(db: Session, limit: int = 50) -> list[ForecastRun]:

@@ -12,6 +12,30 @@ from app.services.forecast_service import team_dicts
 from app.services.match_model import match_probabilities
 
 
+def test_health_hides_database_exception_details(monkeypatch):
+    class BrokenEngine:
+        def connect(self):
+            raise RuntimeError("postgresql://private-host.example/internal")
+
+    with TestClient(app) as client:
+        monkeypatch.setattr(main_module.database, "engine", BrokenEngine())
+        response = client.get("/health")
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Database unavailable"}
+    assert "private-host" not in response.text
+
+
+@pytest.mark.parametrize("authorization", [None, "Basic nope", "Bearer incorrect-secret"])
+def test_cron_sync_rejects_invalid_authorization_headers(authorization):
+    headers = {"Authorization": authorization} if authorization is not None else {}
+    with TestClient(app) as client:
+        response = client.get("/admin/cron/sync", headers=headers)
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid cron authorization"}
+
+
 def test_cron_sync_preserves_structured_skip_status(monkeypatch):
     monkeypatch.setattr(main_module, "valid_cron_authorization", lambda value: True)
     monkeypatch.setattr(main_module, "refresh_live_data", lambda db: skipped_sync_summary())
